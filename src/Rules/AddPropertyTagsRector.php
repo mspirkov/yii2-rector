@@ -501,7 +501,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         }
 
         $firstLine = substr($description, 0, $breakPosition);
-        $remainder = substr($description, $breakPosition + 1);
+        $remainder = substr($description, $breakPosition + 1) . '';
 
         $continuationLines = explode("\n", wordwrap($remainder, $this->descriptionLineLength, "\n", false));
 
