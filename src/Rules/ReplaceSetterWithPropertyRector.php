@@ -25,6 +25,8 @@ final class ReplaceSetterWithPropertyRector extends AbstractRector implements Do
 {
     private const SETTER_METHOD_NAME_PATTERN = '/^set(?<property>[A-Z]\w*)$/';
 
+    private const CHAINED_METHOD_CALL_ATTRIBUTE = 'yii2RectorChainedMethodCall';
+
     private ReflectionProvider $reflectionProvider;
 
     private PropertyTagResolver $propertyTagResolver;
@@ -91,6 +93,19 @@ final class ReplaceSetterWithPropertyRector extends AbstractRector implements Do
      */
     public function refactor(Node $node): ?Node
     {
+        // refactor() runs top-down, so the outer call of a chain is always visited before
+        // the inner one: mark the inner call here so it is never rewritten into a property
+        // assignment, which would return the assigned value instead of the object and break the chain.
+        if ($node->var instanceof MethodCall) {
+            $node->var->setAttribute(self::CHAINED_METHOD_CALL_ATTRIBUTE, true);
+
+            return null;
+        }
+
+        if ($node->getAttribute(self::CHAINED_METHOD_CALL_ATTRIBUTE) === true) {
+            return null;
+        }
+
         if (\count($node->getArgs()) !== 1) {
             return null;
         }
