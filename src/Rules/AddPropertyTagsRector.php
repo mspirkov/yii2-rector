@@ -56,13 +56,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
      */
     public const SKIPPED_CLASSES = 'skippedClasses';
 
-    /**
-     * @internal
-     */
-    public const DESCRIPTION_LINE_LENGTH = 'descriptionLineLength';
-
-    private const DEFAULT_DESCRIPTION_LINE_LENGTH = 110;
-
     private const GETTER_METHOD_NAME_PATTERN = '/^get(?<property>[A-Z]\w*)$/';
 
     private const SETTER_METHOD_NAME_PATTERN = '/^set(?<property>[A-Z]\w*)$/';
@@ -89,8 +82,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     /** @var array<string, list<string>> */
     private array $skippedPropertiesByClass = [];
-
-    private int $descriptionLineLength = self::DEFAULT_DESCRIPTION_LINE_LENGTH;
 
     public function __construct(
         ReflectionProvider $reflectionProvider,
@@ -122,16 +113,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                 'The "%s" configuration must be an array, got "%s".',
                 self::SKIPPED_CLASSES,
                 gettype($skippedClasses)
-            ));
-        }
-
-        $descriptionLineLength = $configuration[self::DESCRIPTION_LINE_LENGTH] ?? self::DEFAULT_DESCRIPTION_LINE_LENGTH;
-
-        if (!is_int($descriptionLineLength) || $descriptionLineLength < 1) {
-            throw new InvalidArgumentException(sprintf(
-                'The "%s" configuration must be a positive integer, got "%s".',
-                self::DESCRIPTION_LINE_LENGTH,
-                is_int($descriptionLineLength) ? (string) $descriptionLineLength : gettype($descriptionLineLength)
             ));
         }
 
@@ -178,7 +159,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
         $this->skippedClasses = $fullySkippedClasses;
         $this->skippedPropertiesByClass = $skippedPropertiesByClass;
-        $this->descriptionLineLength = $descriptionLineLength;
     }
 
     public function getRuleDefinition(): RuleDefinition
@@ -189,8 +169,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             . 'and ActiveRecord relation getters (`hasOne()`/`hasMany()`). Configurable via '
             . '`skippedClasses` — a plain array value (e.g. `\'App\\Foo\'`) fully skips a class, while '
             . 'a string key mapped to a list of property names (e.g. `\'App\\Bar\' => [\'name\']`) '
-            . 'skips only those properties — and `descriptionLineLength` (wrap width for copied tag '
-            . 'descriptions, 110 by default)',
+            . 'skips only those properties',
             [
                 new CodeSample(
                     <<<'CODE_SAMPLE'
@@ -434,7 +413,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
         foreach ($getters as $propertyName => $getter) {
             $setter = $setters[$propertyName] ?? null;
-            $desiredTagsByProperty[$propertyName] = $this->buildDesiredTagsForGetter($getter, $setter, $propertyName);
+            $desiredTagsByProperty[$propertyName] = $this->buildDesiredTagsForGetter($getter, $setter);
         }
 
         foreach ($setters as $propertyName => $setter) {
@@ -443,7 +422,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             }
 
             $desiredTagsByProperty[$propertyName] = [
-                '@property-write' => $this->finalizeTag('@property-write', $propertyName, $setter),
+                '@property-write' => $this->finalizeTag($setter),
             ];
         }
 
@@ -586,17 +565,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             $lines
         );
 
-        if (strpos($description, '```') === false) {
-            $joined = implode(' ', [$firstLine, ...$strippedLines]);
-
-            return trim((string) preg_replace('/\s+/', ' ', $joined));
-        }
-
-        $normalized = trim(implode("\n", [$firstLine, ...$strippedLines]));
-        $normalized = (string) preg_replace('/(?<!\n)[ \t]*(```\w*)/', "\n$1", $normalized);
-        $normalized = (string) preg_replace('/(```\w*)[ \t]*(?=[^\n])/', "$1\n", $normalized);
-
-        return trim($normalized, " \t");
+        return trim(implode("\n", [$firstLine, ...$strippedLines]));
     }
 
     private function finalizeDescriptionPunctuation(string $description): string
@@ -613,12 +582,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         return $body . $trailingNewlines;
     }
 
-    private function wrapDescriptionForTag(
-        string $tagName,
-        TypeNode $typeNode,
-        string $propertyName,
-        string $description
-    ): string {
+    private function finalizeDescriptionForTag(string $description): string
+    {
         if ($description === '') {
             return $description;
         }
@@ -629,19 +594,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             return $this->prefixContinuationLines($description);
         }
 
-        $prefixLength = strlen(" * {$tagName} {$typeNode} \${$propertyName} ");
-        $firstLineWidth = max(1, $this->descriptionLineLength - $prefixLength);
-
-        $breakPosition = strpos(wordwrap($description, $firstLineWidth, "\n", false), "\n");
-
-        if ($breakPosition === false) {
-            return $description;
-        }
-
-        $firstLine = substr($description, 0, $breakPosition);
-        $remainder = substr($description, $breakPosition + 1) . '';
-
-        return $this->prefixContinuationLines($firstLine . "\n" . wordwrap($remainder, $this->descriptionLineLength, "\n", false));
+        return $description;
     }
 
     private function prefixContinuationLines(string $description): string
@@ -972,22 +925,22 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
      *
      * @return array<string, array{0: TypeNode, 1: Type, 2: string}>
      */
-    private function buildDesiredTagsForGetter(array $getter, ?array $setter, string $propertyName): array
+    private function buildDesiredTagsForGetter(array $getter, ?array $setter): array
     {
         if ($setter === null) {
-            return ['@property-read' => $this->finalizeTag('@property-read', $propertyName, $getter)];
+            return ['@property-read' => $this->finalizeTag($getter)];
         }
 
         if ($getter[1]->equals($setter[1])) {
             $description = $getter[2] !== '' ? $getter[2] : $setter[2];
             $tag = [$getter[0], $getter[1], $description];
 
-            return ['@property' => $this->finalizeTag('@property', $propertyName, $tag)];
+            return ['@property' => $this->finalizeTag($tag)];
         }
 
         return [
-            '@property-read' => $this->finalizeTag('@property-read', $propertyName, $getter),
-            '@property-write' => $this->finalizeTag('@property-write', $propertyName, $setter),
+            '@property-read' => $this->finalizeTag($getter),
+            '@property-write' => $this->finalizeTag($setter),
         ];
     }
 
@@ -996,11 +949,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
      *
      * @return array{0: TypeNode, 1: Type, 2: string}
      */
-    private function finalizeTag(string $tagName, string $propertyName, array $tag): array
+    private function finalizeTag(array $tag): array
     {
         [$typeNode, $type, $rawDescription] = $tag;
 
-        return [$typeNode, $type, $this->wrapDescriptionForTag($tagName, $typeNode, $propertyName, $rawDescription)];
+        return [$typeNode, $type, $this->finalizeDescriptionForTag($rawDescription)];
     }
 
     /**

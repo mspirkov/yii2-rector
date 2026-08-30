@@ -26,9 +26,12 @@ namespace MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Fixture\Main;
 use yii\base\BaseObject;
 
 /**
- * @property-write array|int $pagination The pagination to be used by this data provider. This can be one of
- * the following: - a configuration array for creating the pagination object. - an instance of Pagination or its
- * subclass - false, if pagination needs to be disabled.
+ * @property-write array|int $pagination The pagination to be used by this data provider.
+ * This can be one of the following:
+ *
+ * - a configuration array for creating the pagination object.
+ * - an instance of Pagination or its subclass
+ * - false, if pagination needs to be disabled.
  */
 class ProductWithBulletListParamDescription extends BaseObject
 {

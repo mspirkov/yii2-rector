@@ -90,7 +90,7 @@ return RectorConfig::configure()
 
 ### AddPropertyTagsRector
 
-Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\base\BaseObject` subclass, based on its own `getXxx()`/`setXxx()` method pairs and ActiveRecord relation getters (`hasOne()`/`hasMany()`). Configurable via `skippedClasses` — a plain array value (e.g. `'App\Foo'`) fully skips a class, while a string key mapped to a list of property names (e.g. `'App\Bar' => ['name']`) skips only those properties — and `descriptionLineLength` (wrap width for copied tag descriptions, 110 by default)
+Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\base\BaseObject` subclass, based on its own `getXxx()`/`setXxx()` method pairs and ActiveRecord relation getters (`hasOne()`/`hasMany()`). Configurable via `skippedClasses` — a plain array value (e.g. `'App\Foo'`) fully skips a class, while a string key mapped to a list of property names (e.g. `'App\Bar' => ['name']`) skips only those properties
 
 ```diff
 +/**
