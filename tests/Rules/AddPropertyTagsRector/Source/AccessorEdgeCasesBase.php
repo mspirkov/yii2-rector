@@ -20,6 +20,8 @@ class AccessorEdgeCasesBase extends BaseObject
 
     public function setNoParamValue(): void {}
 
+    public function setRequiredSecondParamValue(int $value, int $extra): void {}
+
     protected function getProtectedValue(): int
     {
         return 0;

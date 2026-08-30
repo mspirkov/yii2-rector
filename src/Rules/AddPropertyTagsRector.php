@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MSpirkov\Yii2\Rector\Rules;
 
 use InvalidArgumentException;
+use MSpirkov\Yii2\Rector\ParamAnalyzer;
 use MSpirkov\Yii2\Rector\TypeAnalyzer;
 use MSpirkov\Yii2\Rector\PropertyTagResolver;
 use PhpParser\Node;
@@ -19,6 +20,7 @@ use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Return_;
+use ReflectionParameter;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocChildNode;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocTagNode;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PropertyTagValueNode;
@@ -81,6 +83,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     private TypeAnalyzer $typeAnalyzer;
 
+    private ParamAnalyzer $paramAnalyzer;
+
     /** @var list<string> */
     private array $skippedClasses = [];
 
@@ -95,7 +99,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         DocBlockUpdater $docBlockUpdater,
         StaticTypeMapper $staticTypeMapper,
         PropertyTagResolver $propertyTagResolver,
-        TypeAnalyzer $typeAnalyzer
+        TypeAnalyzer $typeAnalyzer,
+        ParamAnalyzer $paramAnalyzer
     ) {
         $this->reflectionProvider = $reflectionProvider;
         $this->phpDocInfoFactory = $phpDocInfoFactory;
@@ -103,6 +108,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $this->staticTypeMapper = $staticTypeMapper;
         $this->propertyTagResolver = $propertyTagResolver;
         $this->typeAnalyzer = $typeAnalyzer;
+        $this->paramAnalyzer = $paramAnalyzer;
     }
 
     /**
@@ -380,7 +386,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             $methodName = $this->getName($classMethod);
             $getterProperty = $this->resolveGetterPropertyName($methodName);
 
-            if ($getterProperty !== null && $this->hasNoRequiredParams($classMethod)) {
+            if ($getterProperty !== null && $this->paramAnalyzer->isAllParamsOptional($classMethod->getParams())) {
                 $getter = $this->resolveGetterType($classMethod, $classReflection, $methodName, $getterProperty);
                 if ($getter !== null) {
                     $getters[$getterProperty] = $getter;
@@ -391,7 +397,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
             $setterProperty = $this->resolveSetterPropertyName($methodName);
 
-            if ($setterProperty !== null && $classMethod->getParams() !== []) {
+            if (
+                $setterProperty !== null
+                && $classMethod->getParams() !== []
+                && $this->paramAnalyzer->isAllParamsOptionalAfterFirst($classMethod->getParams())
+            ) {
                 $setter = $this->resolveFirstParamType($classMethod, $classReflection, $methodName);
                 if ($setter !== null) {
                     $setters[$setterProperty] = $setter;
@@ -405,7 +415,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             }
 
             $inheritedSetter = $this->resolveInheritedAccessorType($classReflection, $propertyName, false);
-
             if ($inheritedSetter !== null) {
                 $setters[$propertyName] = $inheritedSetter;
             }
@@ -466,13 +475,13 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             return null;
         }
 
+        $parameters = $reflectionMethod->getParameters();
+
         if ($isGetter) {
-            foreach ($reflectionMethod->getParameters() as $parameter) {
-                if (!$parameter->isDefaultValueAvailable() && !$parameter->isVariadic()) {
-                    return null;
-                }
+            if (!$this->allNativeParamsOptional($parameters)) {
+                return null;
             }
-        } elseif ($reflectionMethod->getNumberOfParameters() === 0) {
+        } elseif ($parameters === [] || !$this->allNativeParamsOptional(array_slice($parameters, 1))) {
             return null;
         }
 
@@ -481,10 +490,23 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             $declaringClassReflection->getNativeMethod($methodName)->getVariants()
         );
 
-
         $type = $isGetter ? $variant->getReturnType() : $variant->getParameters()[0]->getType();
 
         return [$this->staticTypeMapper->mapPHPStanTypeToPHPStanPhpDocTypeNode($type), $type, ''];
+    }
+
+    /**
+     * @param list<ReflectionParameter> $parameters
+     */
+    private function allNativeParamsOptional(array $parameters): bool
+    {
+        foreach ($parameters as $parameter) {
+            if (!$parameter->isDefaultValueAvailable() && !$parameter->isVariadic()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -544,17 +566,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         return \lcfirst($matches['property']);
     }
 
-    private function hasNoRequiredParams(ClassMethod $classMethod): bool
-    {
-        foreach ($classMethod->getParams() as $param) {
-            if ($param->default === null && !$param->variadic) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     /**
      * @return array{0: TypeNode, 1: Type, 2: string}|null
      */
@@ -565,7 +576,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         string $propertyName
     ): ?array {
         $relationType = $this->resolveRelationPropertyType($classMethod, $classReflection, $propertyName);
-
         if ($relationType !== null) {
             return [$relationType[0], $relationType[1], $this->resolveReturnTagDescription($classMethod)];
         }
@@ -583,10 +593,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     private function normalizeDescription(string $description): string
     {
-        if (strpos($description, '```') === false) {
-            return trim((string) preg_replace('/\s*\n\s*\*?\s*/', ' ', $description));
-        }
-
         $lines = explode("\n", $description);
         $firstLine = array_shift($lines);
 
@@ -594,6 +600,12 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             static fn(string $line): string => (string) preg_replace('/^\s*\*\s?/', '', $line),
             $lines
         );
+
+        if (strpos($description, '```') === false) {
+            $joined = implode(' ', [$firstLine, ...$strippedLines]);
+
+            return trim((string) preg_replace('/\s+/', ' ', $joined));
+        }
 
         $normalized = trim(implode("\n", [$firstLine, ...$strippedLines]));
         $normalized = (string) preg_replace('/(?<!\n)[ \t]*(```\w*)/', "\n$1", $normalized);
@@ -775,7 +787,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             }
 
             $relation = $this->findRelationCallInExpr($stmt->expr);
-
             if ($relation !== null) {
                 return $relation;
             }
@@ -809,13 +820,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     private function resolveRelatedClassNameFromCall(MethodCall $methodCall, ClassReflection $classReflection): ?array
     {
         $args = $methodCall->getArgs();
-
         if (!isset($args[0]) || $args[0]->unpack) {
             return null;
         }
 
         $classArgument = $args[0]->value;
-
         if (!$classArgument instanceof ClassConstFetch || !$this->isName($classArgument->name, 'class')) {
             return null;
         }
@@ -952,7 +961,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         array $desiredTags
     ): bool {
         $existingTags = $this->getExistingPropertyTagNodes($classPhpDocInfo, $propertyName);
-
         if ($this->matchesDesired($existingTags, $desiredTags, $contextNode)) {
             return false;
         }
