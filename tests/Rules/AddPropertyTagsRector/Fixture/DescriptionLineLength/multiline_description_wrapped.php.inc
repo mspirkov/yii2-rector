@@ -23,10 +23,11 @@ namespace MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Fixture\Descrip
 use yii\base\BaseObject;
 
 /**
- * @property-read string $label Formats the product for display,
- * handling null gracefully by falling back
- * to the default catalog label when
- * nothing is set.
+ * @property-read string $label Formats
+ * the product for display, handling null
+ * gracefully by falling back to the
+ * default catalog label when nothing is
+ * set.
  */
 class ProductWithMultiLineSourceDescription extends BaseObject
 {
