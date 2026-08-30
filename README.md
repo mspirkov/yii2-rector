@@ -119,6 +119,7 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
 +/**
 + * @property-read Customer|null $customer
 + * @property-read OrderItem[] $items
++ */
  class Order extends ActiveRecord
  {
      public function getCustomer(): ActiveQuery

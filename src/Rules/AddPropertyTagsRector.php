@@ -308,6 +308,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                         /**
                          * @property-read Customer|null $customer
                          * @property-read OrderItem[] $items
+                         */
                         class Order extends ActiveRecord
                         {
                             public function getCustomer(): ActiveQuery
