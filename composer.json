@@ -1,0 +1,65 @@
+{
+    "name": "mspirkov/yii2-rector",
+    "description": "A set of Rector rules for projects using the Yii2 framework",
+    "keywords": [
+        "yii",
+        "yii2",
+        "rector"
+    ],
+    "type": "rector-extension",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Maksim Sprikov",
+            "email": "spirkov.2001@mail.ru"
+        }
+    ],
+    "scripts": {
+        "lint:check": "./vendor/bin/php-cs-fixer check",
+        "lint:fix": "./vendor/bin/php-cs-fixer fix",
+        "phpstan": "./vendor/bin/phpstan",
+        "rector:check": "./vendor/bin/rector process --dry-run",
+        "rector:fix": "./vendor/bin/rector process"
+    },
+    "require": {
+        "php": ">=7.4",
+        "rector/rector": "^2.6",
+        "yiisoft/yii2": "^2.0.53"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6",
+        "friendsofphp/php-cs-fixer": "^3.89",
+        "phpstan/phpstan": "^2.2",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "rector/rector": "^2.2",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "shipmonk/phpstan-rules": "^4.2",
+        "spaze/phpstan-disallowed-calls": "^4.7",
+        "ergebnis/phpstan-rules": "^2.13",
+        "kubawerlos/php-cs-fixer-custom-fixers": "^3.37"
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://asset-packagist.org"
+        }
+    ],
+    "suggest": {
+        "mspirkov/yii2-phpstan-rules": "for better error detection in Yii2 projects"
+    },
+    "autoload": {
+        "psr-4": {
+            "MSpirkov\\Yii2\\Rector\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MSpirkov\\Yii2\\Rector\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "yiisoft/yii2-composer": true
+        }
+    }
+}

@@ -1,0 +1,13 @@
+<?php
+
+namespace MSpirkov\Yii2\Rector\Tests\Rules\ReplaceFindWhereOneWithFindOneRector\Fixture;
+
+use MSpirkov\Yii2\Rector\Tests\Rules\ReplaceFindWhereOneWithFindOneRector\Source\Customer;
+
+class SomeService
+{
+    public function run(): ?Customer
+    {
+        return Customer::find()->andWhere(['status' => 1])->one();
+    }
+}

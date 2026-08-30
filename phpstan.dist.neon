@@ -1,0 +1,51 @@
+includes:
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+    - vendor/phpstan/phpstan-phpunit/extension.neon
+    - vendor/shipmonk/phpstan-rules/rules.neon
+    - vendor/ergebnis/phpstan-rules/rules.neon
+    - vendor/spaze/phpstan-disallowed-calls/extension.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-dangerous-calls.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-execution-calls.neon
+
+parameters:
+    level: max
+
+    paths:
+        - src
+        - tests
+
+    excludePaths:
+        analyse:
+            - tests/*/Fixture/*
+            - tests/*/Source/*
+
+    checkBenevolentUnionTypes: true
+    checkMissingCallableSignature: true
+    checkTooWideReturnTypesInProtectedAndPublicMethods: true
+    reportIgnoresWithoutComments: true
+    reportPossiblyNonexistentConstantArrayOffset: true
+    reportMaybesInPropertyPhpDocTypes: false
+
+    shipmonkRules:
+        classSuffixNaming:
+            superclassToSuffixMapping!:
+                \Rector\Testing\PHPUnit\AbstractRectorTestCase: Test
+                \PHPUnit\Framework\TestCase: Test
+
+    ergebnis:
+        allRules: false
+        final:
+            enabled: true
+
+    ignoreErrors:
+        -
+            # The Rector problem that couldn’t be fixed: https://github.com/rectorphp/rector-src/pull/8330
+            message: '~^Method getNodeTypes always return list, but is marked as array<class-string<PhpParser\\Node>>$~'
+            identifier: shipmonk.returnListNotUsed
+            path: src/Rules/*.php
+
+        -
+            # The Rector problem that couldn’t be fixed: https://github.com/rectorphp/rector-src/pull/8330
+            message: '~^Parameter #1 \$node \(PhpParser\\Node\\(?:Expr|Stmt)\\\w+\) of method MSpirkov\\Yii2\\Rector\\Rules\\\w+::refactor\(\) should be contravariant with parameter \$node \(PhpParser\\Node\) of method Rector\\Contract\\Rector\\RectorInterface::refactor\(\)$~'
+            identifier: method.childParameterType
+            path: src/Rules/*.php
