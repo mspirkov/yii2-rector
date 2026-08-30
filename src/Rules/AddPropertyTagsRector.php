@@ -210,7 +210,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             [
                 new CodeSample(
                     <<<'CODE_SAMPLE'
-                        class Product extends \yii\base\BaseObject
+                        class Product extends BaseObject
                         {
                             private string $_name;
 
@@ -252,7 +252,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                          * @property-read int $price
                          * @property-write float $discount
                          */
-                        class Product extends \yii\base\BaseObject
+                        class Product extends BaseObject
                         {
                             private string $_name;
 
@@ -290,17 +290,14 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                 ),
                 new CodeSample(
                     <<<'CODE_SAMPLE'
-                        class Order extends \yii\db\ActiveRecord
+                        class Order extends ActiveRecord
                         {
-                            public function getCustomer()
+                            public function getCustomer(): ActiveQuery
                             {
                                 return $this->hasOne(Customer::class, ['id' => 'customer_id']);
                             }
 
-                            /**
-                             * @return OrderItem[] The line items included in the order.
-                             */
-                            public function getItems()
+                            public function getItems(): ActiveQuery
                             {
                                 return $this->hasMany(OrderItem::class, ['order_id' => 'id']);
                             }
@@ -310,19 +307,15 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                     <<<'CODE_SAMPLE'
                         /**
                          * @property-read Customer|null $customer
-                         * @property-read OrderItem[] $items The line items included in the order.
-                         */
-                        class Order extends \yii\db\ActiveRecord
+                         * @property-read OrderItem[] $items
+                        class Order extends ActiveRecord
                         {
-                            public function getCustomer()
+                            public function getCustomer(): ActiveQuery
                             {
                                 return $this->hasOne(Customer::class, ['id' => 'customer_id']);
                             }
 
-                            /**
-                             * @return OrderItem[] The line items included in the order.
-                             */
-                            public function getItems()
+                            public function getItems(): ActiveQuery
                             {
                                 return $this->hasMany(OrderItem::class, ['order_id' => 'id']);
                             }

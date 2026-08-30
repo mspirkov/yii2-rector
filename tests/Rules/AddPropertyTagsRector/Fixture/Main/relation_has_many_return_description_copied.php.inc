@@ -3,12 +3,13 @@
 namespace MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Fixture\Main;
 
 use MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source\Category;
+use yii\db\ActiveQuery;
 use yii\db\ActiveRecord;
 
 class ProductWithDescribedCategoriesRelation extends ActiveRecord
 {
     /**
-     * @return Category[] The categories this product is listed under.
+     * @return ActiveQuery The categories this product is listed under.
      */
     public function getCategories()
     {
@@ -21,6 +22,7 @@ class ProductWithDescribedCategoriesRelation extends ActiveRecord
 namespace MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Fixture\Main;
 
 use MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source\Category;
+use yii\db\ActiveQuery;
 use yii\db\ActiveRecord;
 
 /**
@@ -29,7 +31,7 @@ use yii\db\ActiveRecord;
 class ProductWithDescribedCategoriesRelation extends ActiveRecord
 {
     /**
-     * @return Category[] The categories this product is listed under.
+     * @return ActiveQuery The categories this product is listed under.
      */
     public function getCategories()
     {
