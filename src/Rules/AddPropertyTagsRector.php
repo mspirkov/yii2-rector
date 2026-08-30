@@ -368,7 +368,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $setters = [];
 
         foreach ($class->getMethods() as $classMethod) {
-            if ($classMethod->isStatic() || $classMethod->isPrivate()) {
+            if ($classMethod->isStatic() || !$classMethod->isPublic()) {
                 continue;
             }
 
@@ -393,7 +393,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
         foreach ($getters as $propertyName => $getter) {
             $setter = $setters[$propertyName] ?? null;
-            $desiredTagsByProperty[$propertyName] = $this->buildDesiredTagsForGetter($getter, $setter);
+            $desiredTagsByProperty[$propertyName] = $this->buildDesiredTagsForGetter($getter, $setter, $propertyName);
         }
 
         foreach ($setters as $propertyName => $setter) {
@@ -401,7 +401,9 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                 continue;
             }
 
-            $desiredTagsByProperty[$propertyName] = ['@property-write' => $setter];
+            $desiredTagsByProperty[$propertyName] = [
+                '@property-write' => $this->finalizeTag('@property-write', $propertyName, $setter),
+            ];
         }
 
         return $desiredTagsByProperty;
@@ -459,10 +461,10 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $methodPhpDocInfo = $this->phpDocInfoFactory->createFromNodeOrEmpty($classMethod);
         $returnTagValue = $methodPhpDocInfo->getReturnTagValue();
 
-        return $this->wrapDescription($returnTagValue !== null ? $returnTagValue->description : '');
+        return $this->normalizeDescription($returnTagValue !== null ? $returnTagValue->description : '');
     }
 
-    private function wrapDescription(string $description): string
+    private function normalizeDescription(string $description): string
     {
         $normalizedDescription = trim((string) preg_replace('/\s*\n\s*\*?\s*/', ' ', $description));
 
@@ -470,15 +472,45 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             return $normalizedDescription;
         }
 
-        $lines = explode("\n", wordwrap($normalizedDescription, $this->descriptionLineLength, "\n", false));
-        $firstLine = array_shift($lines);
+        $normalizedDescription = ucfirst($normalizedDescription);
 
-        $continuationLines = array_map(
+        if (!in_array(substr($normalizedDescription, -1), ['.', '!', '?', ':'], true)) {
+            $normalizedDescription .= '.';
+        }
+
+        return $normalizedDescription;
+    }
+
+    private function wrapDescriptionForTag(
+        string $tagName,
+        TypeNode $typeNode,
+        string $propertyName,
+        string $description
+    ): string {
+        if ($description === '') {
+            return $description;
+        }
+
+        $prefixLength = strlen(" * {$tagName} {$typeNode} \${$propertyName} ");
+        $firstLineWidth = max(1, $this->descriptionLineLength - $prefixLength);
+
+        $breakPosition = strpos(wordwrap($description, $firstLineWidth, "\n", false), "\n");
+
+        if ($breakPosition === false) {
+            return $description;
+        }
+
+        $firstLine = substr($description, 0, $breakPosition);
+        $remainder = substr($description, $breakPosition + 1) . '';
+
+        $continuationLines = explode("\n", wordwrap($remainder, $this->descriptionLineLength, "\n", false));
+
+        $formattedContinuationLines = array_map(
             static fn(string $line): string => $line === '' ? ' *' : ' * ' . $line,
-            $lines
+            $continuationLines
         );
 
-        return implode("\n", [$firstLine, ...$continuationLines]);
+        return implode("\n", [$firstLine, ...$formattedContinuationLines]);
     }
 
     /**
@@ -686,7 +718,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         if ($returnTagValue !== null) {
             $type = $this->staticTypeMapper->mapPHPStanPhpDocTypeNodeToPHPStanType($returnTagValue->type, $classMethod);
 
-            return [$returnTagValue->type, $type, $this->wrapDescription($returnTagValue->description)];
+            return [$returnTagValue->type, $type, $this->normalizeDescription($returnTagValue->description)];
         }
 
         $type = ParametersAcceptorSelector::combineAcceptors(
@@ -715,7 +747,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         if ($paramTagValue !== null) {
             $type = $this->staticTypeMapper->mapPHPStanPhpDocTypeNodeToPHPStanType($paramTagValue->type, $classMethod);
 
-            return [$paramTagValue->type, $type, $this->wrapDescription($paramTagValue->description)];
+            return [$paramTagValue->type, $type, $this->normalizeDescription($paramTagValue->description)];
         }
 
         $parameters = ParametersAcceptorSelector::combineAcceptors(
@@ -792,19 +824,35 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
      *
      * @return array<string, array{0: TypeNode, 1: Type, 2: string}>
      */
-    private function buildDesiredTagsForGetter(array $getter, ?array $setter): array
+    private function buildDesiredTagsForGetter(array $getter, ?array $setter, string $propertyName): array
     {
         if ($setter === null) {
-            return ['@property-read' => $getter];
+            return ['@property-read' => $this->finalizeTag('@property-read', $propertyName, $getter)];
         }
 
         if ($getter[1]->equals($setter[1])) {
             $description = $getter[2] !== '' ? $getter[2] : $setter[2];
+            $tag = [$getter[0], $getter[1], $description];
 
-            return ['@property' => [$getter[0], $getter[1], $description]];
+            return ['@property' => $this->finalizeTag('@property', $propertyName, $tag)];
         }
 
-        return ['@property-read' => $getter, '@property-write' => $setter];
+        return [
+            '@property-read' => $this->finalizeTag('@property-read', $propertyName, $getter),
+            '@property-write' => $this->finalizeTag('@property-write', $propertyName, $setter),
+        ];
+    }
+
+    /**
+     * @param array{0: TypeNode, 1: Type, 2: string} $tag
+     *
+     * @return array{0: TypeNode, 1: Type, 2: string}
+     */
+    private function finalizeTag(string $tagName, string $propertyName, array $tag): array
+    {
+        [$typeNode, $type, $rawDescription] = $tag;
+
+        return [$typeNode, $type, $this->wrapDescriptionForTag($tagName, $typeNode, $propertyName, $rawDescription)];
     }
 
     /**

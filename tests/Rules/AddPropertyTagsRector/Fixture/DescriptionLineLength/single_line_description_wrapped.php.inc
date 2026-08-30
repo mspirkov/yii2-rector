@@ -20,9 +20,9 @@ namespace MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Fixture\Descrip
 use yii\base\BaseObject;
 
 /**
- * @property-read string $sku A short label used to identify this
- * particular product in listings and
- * search results.
+ * @property-read string $sku A short
+ * label used to identify this particular
+ * product in listings and search results.
  */
 class ProductWithLongSingleLineDescription extends BaseObject
 {
