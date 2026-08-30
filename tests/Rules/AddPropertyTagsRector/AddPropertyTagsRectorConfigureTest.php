@@ -45,22 +45,4 @@ final class AddPropertyTagsRectorConfigureTest extends AbstractLazyTestCase
 
         $rule->configure([AddPropertyTagsRector::SKIPPED_CLASSES => ['SomeClass' => ['validProperty', 123]]]);
     }
-
-    public function testDescriptionLineLengthMustBeAnInteger(): void
-    {
-        $rule = $this->make(AddPropertyTagsRector::class);
-
-        self::expectException(InvalidArgumentException::class);
-
-        $rule->configure([AddPropertyTagsRector::DESCRIPTION_LINE_LENGTH => '110']);
-    }
-
-    public function testDescriptionLineLengthMustBePositive(): void
-    {
-        $rule = $this->make(AddPropertyTagsRector::class);
-
-        self::expectException(InvalidArgumentException::class);
-
-        $rule->configure([AddPropertyTagsRector::DESCRIPTION_LINE_LENGTH => 0]);
-    }
 }
