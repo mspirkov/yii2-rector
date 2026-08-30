@@ -3,13 +3,14 @@
 namespace MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Fixture\Main;
 
 use MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source\Category;
+use yii\db\ActiveQuery;
 use yii\db\ActiveRecord;
 
-/**
- * @property int|null $category_id
- */
-class ProductWithNullableCategoryRelation extends ActiveRecord
+class ProductWithDescribedCategoryRelation extends ActiveRecord
 {
+    /**
+     * @return ActiveQuery The category this product belongs to.
+     */
     public function getCategory()
     {
         return $this->hasOne(Category::class, ['id' => 'category_id']);
@@ -21,14 +22,17 @@ class ProductWithNullableCategoryRelation extends ActiveRecord
 namespace MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Fixture\Main;
 
 use MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source\Category;
+use yii\db\ActiveQuery;
 use yii\db\ActiveRecord;
 
 /**
- * @property int|null $category_id
- * @property-read Category|null $category
+ * @property-read Category|null $category The category this product belongs to.
  */
-class ProductWithNullableCategoryRelation extends ActiveRecord
+class ProductWithDescribedCategoryRelation extends ActiveRecord
 {
+    /**
+     * @return ActiveQuery The category this product belongs to.
+     */
     public function getCategory()
     {
         return $this->hasOne(Category::class, ['id' => 'category_id']);

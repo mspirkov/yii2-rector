@@ -112,7 +112,16 @@ Follow the standard `rector/rector` fixture-test convention:
   don't reuse the full `main.php` set.
 - `Fixture/*.php.inc` files hold one scenario each: content before `-----` is the input, content
   after is the expected output. **Omit the `-----` separator entirely to assert "no change"** —
-  useful for documenting guard clauses / cases the rule intentionally must not touch.
+  useful for documenting guard clauses / cases the rule intentionally must not touch. **Never
+  keep the `-----` separator with byte-identical content on both sides** — that's the same "no
+  change" assertion as omitting the separator, just spelled out twice for no reason; it passes
+  either way (`doTestFile()` doesn't care), but the duplication reads as a copy-paste mistake
+  rather than a deliberate no-op. Three such fixtures in `AddPropertyTagsRector/Fixture/Main/`
+  (`relation_has_many_existing_tag_not_duplicated.php.inc`,
+  `relation_has_one_existing_nullable_tag_preserved.php.inc`,
+  `relation_has_one_non_nullable_link.php.inc`) had exactly this duplication and were collapsed to
+  a single block — if you're adding a new "existing tag is already correct, don't touch it"
+  fixture, write it as one block from the start.
 - Fixtures use the `.php.inc` extension (not `.php`) on purpose: this repo's own `rector.php`
   and `.php-cs-fixer.dist.php` only scan `*.php` files, so fixture "before" snippets containing
   the deprecated patterns you're testing for never get mangled by this project's own tooling.

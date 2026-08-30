@@ -19,7 +19,7 @@ namespace MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Fixture\Main;
 use yii\db\ActiveRecord;
 
 /**
- * @property-read MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source\Category $category
+ * @property-read MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source\Category|null $category
  */
 class ProductWithFullyQualifiedRelationClass extends ActiveRecord
 {
