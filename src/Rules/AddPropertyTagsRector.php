@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MSpirkov\Yii2\Rector\Rules;
 
 use InvalidArgumentException;
+use MSpirkov\Yii2\Rector\TypeAnalyzer;
 use MSpirkov\Yii2\Rector\PropertyTagResolver;
 use PhpParser\Node;
 use PhpParser\Node\Expr;
@@ -78,6 +79,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     private PropertyTagResolver $propertyTagResolver;
 
+    private TypeAnalyzer $typeAnalyzer;
+
     /** @var list<string> */
     private array $skippedClasses = [];
 
@@ -91,13 +94,15 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         PhpDocInfoFactory $phpDocInfoFactory,
         DocBlockUpdater $docBlockUpdater,
         StaticTypeMapper $staticTypeMapper,
-        PropertyTagResolver $propertyTagResolver
+        PropertyTagResolver $propertyTagResolver,
+        TypeAnalyzer $typeAnalyzer
     ) {
         $this->reflectionProvider = $reflectionProvider;
         $this->phpDocInfoFactory = $phpDocInfoFactory;
         $this->docBlockUpdater = $docBlockUpdater;
         $this->staticTypeMapper = $staticTypeMapper;
         $this->propertyTagResolver = $propertyTagResolver;
+        $this->typeAnalyzer = $typeAnalyzer;
     }
 
     /**
@@ -373,11 +378,14 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             }
 
             $methodName = $this->getName($classMethod);
-
             $getterProperty = $this->resolveGetterPropertyName($methodName);
 
             if ($getterProperty !== null && $this->hasNoRequiredParams($classMethod)) {
-                $getters[$getterProperty] = $this->resolveGetterType($classMethod, $classReflection, $methodName, $getterProperty);
+                $getter = $this->resolveGetterType($classMethod, $classReflection, $methodName, $getterProperty);
+
+                if ($getter !== null) {
+                    $getters[$getterProperty] = $getter;
+                }
 
                 continue;
             }
@@ -385,7 +393,35 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             $setterProperty = $this->resolveSetterPropertyName($methodName);
 
             if ($setterProperty !== null && $classMethod->getParams() !== []) {
-                $setters[$setterProperty] = $this->resolveFirstParamType($classMethod, $classReflection, $methodName);
+                $setter = $this->resolveFirstParamType($classMethod, $classReflection, $methodName);
+
+                if ($setter !== null) {
+                    $setters[$setterProperty] = $setter;
+                }
+            }
+        }
+
+        foreach (array_keys($getters) as $propertyName) {
+            if (isset($setters[$propertyName])) {
+                continue;
+            }
+
+            $inheritedSetter = $this->resolveInheritedAccessorType($classReflection, $propertyName, false);
+
+            if ($inheritedSetter !== null) {
+                $setters[$propertyName] = $inheritedSetter;
+            }
+        }
+
+        foreach (array_keys($setters) as $propertyName) {
+            if (isset($getters[$propertyName])) {
+                continue;
+            }
+
+            $inheritedGetter = $this->resolveInheritedAccessorType($classReflection, $propertyName, true);
+
+            if ($inheritedGetter !== null) {
+                $getters[$propertyName] = $inheritedGetter;
             }
         }
 
@@ -406,7 +442,91 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             ];
         }
 
+        foreach (array_keys($desiredTagsByProperty) as $propertyName) {
+            if ($this->isRedundantWithAncestor($classReflection, $propertyName, $desiredTagsByProperty[$propertyName])) {
+                unset($desiredTagsByProperty[$propertyName]);
+            }
+        }
+
         return $desiredTagsByProperty;
+    }
+
+    /**
+     * @return array{0: TypeNode, 1: Type, 2: string}|null
+     */
+    private function resolveInheritedAccessorType(ClassReflection $classReflection, string $propertyName, bool $isGetter): ?array
+    {
+        $methodName = ($isGetter ? 'get' : 'set') . ucfirst($propertyName);
+        $nativeReflection = $classReflection->getNativeReflection();
+
+        if (!$nativeReflection->hasMethod($methodName)) {
+            return null;
+        }
+
+        $reflectionMethod = $nativeReflection->getMethod($methodName);
+
+        if (!$reflectionMethod->isPublic() || $reflectionMethod->isStatic()) {
+            return null;
+        }
+
+        if ($isGetter) {
+            foreach ($reflectionMethod->getParameters() as $parameter) {
+                if (!$parameter->isDefaultValueAvailable() && !$parameter->isVariadic()) {
+                    return null;
+                }
+            }
+        } elseif ($reflectionMethod->getNumberOfParameters() === 0) {
+            return null;
+        }
+
+        $declaringClassReflection = $this->reflectionProvider->getClass($reflectionMethod->getDeclaringClass()->getName());
+        $variant = ParametersAcceptorSelector::combineAcceptors(
+            $declaringClassReflection->getNativeMethod($methodName)->getVariants()
+        );
+
+
+        $type = $isGetter ? $variant->getReturnType() : $variant->getParameters()[0]->getType();
+
+        return [$this->staticTypeMapper->mapPHPStanTypeToPHPStanPhpDocTypeNode($type), $type, ''];
+    }
+
+    /**
+     * @param array<string, array{0: TypeNode, 1: Type, 2: string}> $desiredTags
+     */
+    private function isRedundantWithAncestor(ClassReflection $classReflection, string $propertyName, array $desiredTags): bool
+    {
+        /** @var ClassReflection $parentClass */
+        $parentClass = $classReflection->getParentClass();
+        $ancestorTag = $this->propertyTagResolver->resolve($parentClass, $propertyName);
+
+        if ($ancestorTag === null) {
+            return false;
+        }
+
+        $desiredReadableType = null;
+        $desiredWritableType = null;
+
+        foreach ($desiredTags as $tagName => [, $type]) {
+            if ($tagName === '@property' || $tagName === '@property-read') {
+                $desiredReadableType = $type;
+            }
+
+            if ($tagName === '@property' || $tagName === '@property-write') {
+                $desiredWritableType = $type;
+            }
+        }
+
+        return $this->typesMatch($desiredReadableType, $ancestorTag->getReadableType())
+            && $this->typesMatch($desiredWritableType, $ancestorTag->getWritableType());
+    }
+
+    private function typesMatch(?Type $desiredType, ?Type $ancestorType): bool
+    {
+        if ($desiredType === null || $ancestorType === null) {
+            return $desiredType === $ancestorType;
+        }
+
+        return $desiredType->equals($ancestorType);
     }
 
     private function resolveGetterPropertyName(string $methodName): ?string
@@ -439,14 +559,14 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     }
 
     /**
-     * @return array{0: TypeNode, 1: Type, 2: string}
+     * @return array{0: TypeNode, 1: Type, 2: string}|null
      */
     private function resolveGetterType(
         ClassMethod $classMethod,
         ClassReflection $classReflection,
         string $methodName,
         string $propertyName
-    ): array {
+    ): ?array {
         $relationType = $this->resolveRelationPropertyType($classMethod, $classReflection, $propertyName);
 
         if ($relationType !== null) {
@@ -466,19 +586,37 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     private function normalizeDescription(string $description): string
     {
-        $normalizedDescription = trim((string) preg_replace('/\s*\n\s*\*?\s*/', ' ', $description));
-
-        if ($normalizedDescription === '') {
-            return $normalizedDescription;
+        if (strpos($description, '```') === false) {
+            return trim((string) preg_replace('/\s*\n\s*\*?\s*/', ' ', $description));
         }
 
-        $normalizedDescription = ucfirst($normalizedDescription);
+        $lines = explode("\n", $description);
+        $firstLine = array_shift($lines);
 
-        if (!in_array(substr($normalizedDescription, -1), ['.', '!', '?', ':'], true)) {
-            $normalizedDescription .= '.';
+        $strippedLines = array_map(
+            static fn(string $line): string => (string) preg_replace('/^\s*\*\s?/', '', $line),
+            $lines
+        );
+
+        $normalized = trim(implode("\n", [$firstLine, ...$strippedLines]));
+        $normalized = (string) preg_replace('/(?<!\n)[ \t]*(```\w*)/', "\n$1", $normalized);
+        $normalized = (string) preg_replace('/(```\w*)[ \t]*(?!\n)/', "$1\n", $normalized);
+
+        return trim($normalized, " \t");
+    }
+
+    private function finalizeDescriptionPunctuation(string $description): string
+    {
+        $body = rtrim($description, "\n");
+        $trailingNewlines = substr($description, strlen($body));
+
+        $body = ucfirst($body);
+
+        if (substr($body, -3) !== '```' && !in_array(substr($body, -1), ['.', '!', '?', ':'], true)) {
+            $body .= '.';
         }
 
-        return $normalizedDescription;
+        return $body . $trailingNewlines;
     }
 
     private function wrapDescriptionForTag(
@@ -489,6 +627,12 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     ): string {
         if ($description === '') {
             return $description;
+        }
+
+        $description = $this->finalizeDescriptionPunctuation($description);
+
+        if (strpos($description, "\n") !== false) {
+            return $this->prefixContinuationLines($description);
         }
 
         $prefixLength = strlen(" * {$tagName} {$typeNode} \${$propertyName} ");
@@ -503,14 +647,20 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $firstLine = substr($description, 0, $breakPosition);
         $remainder = substr($description, $breakPosition + 1) . '';
 
-        $continuationLines = explode("\n", wordwrap($remainder, $this->descriptionLineLength, "\n", false));
+        return $this->prefixContinuationLines($firstLine . "\n" . wordwrap($remainder, $this->descriptionLineLength, "\n", false));
+    }
 
-        $formattedContinuationLines = array_map(
+    private function prefixContinuationLines(string $description): string
+    {
+        $lines = explode("\n", $description);
+        $firstLine = array_shift($lines);
+
+        $continuationLines = array_map(
             static fn(string $line): string => $line === '' ? ' *' : ' * ' . $line,
-            $continuationLines
+            $lines
         );
 
-        return implode("\n", [$firstLine, ...$formattedContinuationLines]);
+        return implode("\n", [$firstLine, ...$continuationLines]);
     }
 
     /**
@@ -708,14 +858,18 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     }
 
     /**
-     * @return array{0: TypeNode, 1: Type, 2: string}
+     * @return array{0: TypeNode, 1: Type, 2: string}|null
      */
-    private function resolveReturnType(ClassMethod $classMethod, ClassReflection $classReflection, string $methodName): array
+    private function resolveReturnType(ClassMethod $classMethod, ClassReflection $classReflection, string $methodName): ?array
     {
         $methodPhpDocInfo = $this->phpDocInfoFactory->createFromNodeOrEmpty($classMethod);
         $returnTagValue = $methodPhpDocInfo->getReturnTagValue();
 
         if ($returnTagValue !== null) {
+            if ($this->typeAnalyzer->isConditionalType($returnTagValue->type)) {
+                return null;
+            }
+
             $type = $this->staticTypeMapper->mapPHPStanPhpDocTypeNodeToPHPStanType($returnTagValue->type, $classMethod);
 
             return [$returnTagValue->type, $type, $this->normalizeDescription($returnTagValue->description)];
@@ -732,9 +886,9 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     }
 
     /**
-     * @return array{0: TypeNode, 1: Type, 2: string}
+     * @return array{0: TypeNode, 1: Type, 2: string}|null
      */
-    private function resolveFirstParamType(ClassMethod $classMethod, ClassReflection $classReflection, string $methodName): array
+    private function resolveFirstParamType(ClassMethod $classMethod, ClassReflection $classReflection, string $methodName): ?array
     {
         $firstParam = $classMethod->getParams()[0];
 
@@ -745,6 +899,10 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $paramTagValue = $methodPhpDocInfo->getParamTagValueByName($paramName);
 
         if ($paramTagValue !== null) {
+            if ($this->typeAnalyzer->isConditionalType($paramTagValue->type)) {
+                return null;
+            }
+
             $type = $this->staticTypeMapper->mapPHPStanPhpDocTypeNodeToPHPStanType($paramTagValue->type, $classMethod);
 
             return [$paramTagValue->type, $type, $this->normalizeDescription($paramTagValue->description)];
@@ -899,7 +1057,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             }
 
             $existingValue = $existingByTagName[$tagName][0];
-
             if ($existingValue->description !== $desiredDescription) {
                 return false;
             }
