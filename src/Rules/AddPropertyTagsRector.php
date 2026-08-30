@@ -20,7 +20,6 @@ use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Return_;
-use ReflectionParameter;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocChildNode;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocTagNode;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PropertyTagValueNode;
@@ -478,10 +477,10 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $parameters = $reflectionMethod->getParameters();
 
         if ($isGetter) {
-            if (!$this->allNativeParamsOptional($parameters)) {
+            if (!$this->paramAnalyzer->isAllNativeParamsOptional($parameters)) {
                 return null;
             }
-        } elseif ($parameters === [] || !$this->allNativeParamsOptional(array_slice($parameters, 1))) {
+        } elseif ($parameters === [] || !$this->paramAnalyzer->isAllNativeParamsOptionalAfterFirst($parameters)) {
             return null;
         }
 
@@ -493,20 +492,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $type = $isGetter ? $variant->getReturnType() : $variant->getParameters()[0]->getType();
 
         return [$this->staticTypeMapper->mapPHPStanTypeToPHPStanPhpDocTypeNode($type), $type, ''];
-    }
-
-    /**
-     * @param list<ReflectionParameter> $parameters
-     */
-    private function allNativeParamsOptional(array $parameters): bool
-    {
-        foreach ($parameters as $parameter) {
-            if (!$parameter->isDefaultValueAvailable() && !$parameter->isVariadic()) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /**
