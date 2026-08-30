@@ -7,9 +7,9 @@ use yii\db\ActiveRecord;
 
 /**
  * @property int $category_id
- * @property-read Category $category
+ * @property-read Category|null $category
  */
-class ProductWithRequiredCategoryRelation extends ActiveRecord
+class ProductWithExistingNullableTagAndNonNullableLink extends ActiveRecord
 {
     public function getCategory()
     {
@@ -26,9 +26,9 @@ use yii\db\ActiveRecord;
 
 /**
  * @property int $category_id
- * @property-read Category $category
+ * @property-read Category|null $category
  */
-class ProductWithRequiredCategoryRelation extends ActiveRecord
+class ProductWithExistingNullableTagAndNonNullableLink extends ActiveRecord
 {
     public function getCategory()
     {

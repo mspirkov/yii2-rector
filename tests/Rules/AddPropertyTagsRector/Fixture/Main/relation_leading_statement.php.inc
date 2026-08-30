@@ -23,7 +23,7 @@ use MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source\Category;
 use yii\db\ActiveRecord;
 
 /**
- * @property-read Category $category
+ * @property-read Category|null $category
  */
 class ProductWithLeadingStatementRelation extends ActiveRecord
 {

@@ -71,7 +71,7 @@ return RectorConfig::configure()
 
 ### AddPropertyTagsRector
 
-Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\base\BaseObject` subclass, based on its own `getXxx()`/`setXxx()` method pairs. A getter-only property becomes `@property-read`, a setter-only property becomes `@property-write`; a property with both a getter and a setter becomes a single `@property` when their types are equal, or splits into separate `@property-read`/`@property-write` tags when they differ. A type is copied as-is from the getter's own `@return` tag or the setter's own `@param` tag when present (falling back to the native type declaration otherwise), rather than being re-resolved, so a short class name already in scope is never turned into a fully-qualified one. An ActiveRecord relation getter (a method returning `$this->hasOne()`/`$this->hasMany()`) is handled differently: the property type comes from the related class — or an array of it for `hasMany` — not from the getter's own `ActiveQuery` return type. A `hasOne` relation's type is made nullable when any local link attribute it matches on is itself nullable (per that attribute's own `@property`/`@property-read` tag), since the relation is null whenever the link can't be resolved; `hasMany` is never made nullable, as it resolves to an empty array instead. The tag's description is copied the same way: from the getter's own `@return` tag, or the setter's own `@param` tag, whichever is present (the getter's description wins when a merged `@property` tag has both), and is re-wrapped with `wordwrap()` to the configured `descriptionLineLength` (110 by default) — an unbreakable run of non-space characters (e.g. a code sample) is never cut mid-token, only overflows the width. An already-correct tag is left untouched. Getter/setter pairing only considers methods declared directly in the class being processed: if a getter is inherited from a parent class while only the setter is declared locally, the property is tagged `@property-write`-only, not the combined `@property`, even when the inherited getter's type would in fact match. A class — or specific properties of it — can be excluded via the `skippedClasses` configuration: a plain array value (e.g. `'App\Foo'`) fully skips that class, while a string key mapped to a list of property names (e.g. `'App\Bar' => ['name']`) skips only those properties
+Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\base\BaseObject` subclass, based on its own `getXxx()`/`setXxx()` method pairs. A getter-only property becomes `@property-read`, a setter-only property becomes `@property-write`; a property with both a getter and a setter becomes a single `@property` when their types are equal, or splits into separate `@property-read`/`@property-write` tags when they differ. A type is copied as-is from the getter's own `@return` tag or the setter's own `@param` tag when present (falling back to the native type declaration otherwise), rather than being re-resolved, so a short class name already in scope is never turned into a fully-qualified one. An ActiveRecord relation getter (a method returning `$this->hasOne()`/`$this->hasMany()`) is handled differently: the property type comes from the related class — or an array of it for `hasMany` — not from the getter's own `ActiveQuery` return type, and a nullable `hasOne` is written as a `Type|null` union, never the `?Type` shorthand. A freshly generated `hasOne` tag defaults to nullable, since the relation resolves to `null` at runtime whenever no matching row exists, even when its link attribute is itself non-nullable; `hasMany` is never made nullable, as it resolves to an empty array instead. An already-declared `hasOne` tag is trusted instead of being defaulted: its nullability is left alone unless the link attribute it matches on is itself nullable (per that attribute's own `@property`/`@property-read` tag), in which case null is added to whatever type is already there. The tag's description is copied the same way: from the getter's own `@return` tag, or the setter's own `@param` tag, whichever is present (the getter's description wins when a merged `@property` tag has both), and is re-wrapped with `wordwrap()` to the configured `descriptionLineLength` (110 by default) — an unbreakable run of non-space characters (e.g. a code sample) is never cut mid-token, only overflows the width. An already-correct tag is left untouched. Getter/setter pairing only considers methods declared directly in the class being processed: if a getter is inherited from a parent class while only the setter is declared locally, the property is tagged `@property-write`-only, not the combined `@property`, even when the inherited getter's type would in fact match. A class — or specific properties of it — can be excluded via the `skippedClasses` configuration: a plain array value (e.g. `'App\Foo'`) fully skips that class, while a string key mapped to a list of property names (e.g. `'App\Bar' => ['name']`) skips only those properties
 
 ```diff
 +/**
@@ -82,11 +82,11 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
  class Product extends \yii\base\BaseObject
  {
      private string $_name;
-
+ 
      private int $_price;
-
+ 
      private float $_discount;
-
+ 
      /**
       * @return string The product name.
       */
@@ -94,7 +94,7 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          return $this->_name;
      }
-
+ 
      /**
       * @param string $name The product name.
       */
@@ -102,12 +102,12 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          $this->_name = $name;
      }
-
+ 
      public function getPrice(): int
      {
          return $this->_price;
      }
-
+ 
      public function setDiscount(float $discount): void
      {
          $this->_discount = $discount;
@@ -117,8 +117,8 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
 
 ```diff
 +/**
-+ * @property-read Customer $customer
-+ * @property-read OrderItem[] $items
++ * @property-read Customer|null $customer
++ * @property-read OrderItem[] $items The line items included in the order.
 + */
  class Order extends \yii\db\ActiveRecord
  {
@@ -126,7 +126,10 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          return $this->hasOne(Customer::class, ['id' => 'customer_id']);
      }
-
+ 
+     /**
+      * @return OrderItem[] The line items included in the order.
+      */
      public function getItems()
      {
          return $this->hasMany(OrderItem::class, ['order_id' => 'id']);
@@ -189,7 +192,7 @@ Replace an existence check on a `yii\db\QueryInterface` result (`yii\db\Query`, 
 -    return User::find()->where(['email' => $email])->one() !== null;
 +    return User::find()->where(['email' => $email])->exists();
  }
-
+ 
  public function emailIsAvailable(string $email): bool
  {
 -    return User::find()->where(['email' => $email])->count() < 1;
@@ -226,13 +229,13 @@ Replace a `yii\base\BaseObject` getter call with the equivalent magic-property a
  class Example extends \yii\base\BaseObject
  {
      private string $_prop;
-
+ 
      public function getProp(): string
      {
          return $this->_prop;
      }
  }
-
+ 
 -$value = (new Example())->getProp();
 +$value = (new Example())->prop;
 ```
@@ -248,13 +251,13 @@ Replace a `yii\base\BaseObject` setter call with the equivalent magic-property a
  class Example extends \yii\base\BaseObject
  {
      private string $_prop;
-
+ 
      public function setProp(string $value): void
      {
          $this->_prop = $value;
      }
  }
-
+ 
 -(new Example())->setProp('value');
 +(new Example())->prop = 'value';
 ```

@@ -6,10 +6,10 @@ use MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source\Category;
 use yii\db\ActiveRecord;
 
 /**
- * @property int $category_id
+ * @property int|null $category_id
  * @property-read Category $category
  */
-class ProductWithRequiredCategoryRelation extends ActiveRecord
+class ProductWithExistingTagAndNullableLink extends ActiveRecord
 {
     public function getCategory()
     {
@@ -25,10 +25,10 @@ use MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source\Category;
 use yii\db\ActiveRecord;
 
 /**
- * @property int $category_id
- * @property-read Category $category
+ * @property int|null $category_id
+ * @property-read Category|null $category
  */
-class ProductWithRequiredCategoryRelation extends ActiveRecord
+class ProductWithExistingTagAndNullableLink extends ActiveRecord
 {
     public function getCategory()
     {

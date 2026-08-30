@@ -29,12 +29,13 @@ use PHPStan\Reflection\ClassReflection;
 use PHPStan\Reflection\ParametersAcceptorSelector;
 use PHPStan\Reflection\ReflectionProvider;
 use PHPStan\Type\ArrayType;
-use PHPStan\Type\IntegerType;
+use PHPStan\Type\MixedType;
 use PHPStan\Type\ObjectType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
 use Rector\BetterPhpDocParser\PhpDocInfo\PhpDocInfo;
 use Rector\BetterPhpDocParser\PhpDocInfo\PhpDocInfoFactory;
+use Rector\BetterPhpDocParser\ValueObject\Type\BracketsAwareUnionTypeNode;
 use Rector\Comments\NodeDocBlock\DocBlockUpdater;
 use Rector\Contract\Rector\ConfigurableRectorInterface;
 use Rector\NodeTypeResolver\Node\AttributeKey;
@@ -184,11 +185,15 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             . 'name already in scope is never turned into a fully-qualified one. An ActiveRecord '
             . 'relation getter (a method returning `$this->hasOne()`/`$this->hasMany()`) is handled '
             . 'differently: the property type comes from the related class — or an array of it for '
-            . '`hasMany` — not from the getter\'s own `ActiveQuery` return type. A `hasOne` relation\'s '
-            . 'type is made nullable when any local link attribute it matches on is itself nullable '
-            . '(per that attribute\'s own `@property`/`@property-read` tag), since the relation is null '
-            . 'whenever the link can\'t be resolved; `hasMany` is never made nullable, as it resolves to '
-            . 'an empty array instead. The tag\'s description is '
+            . '`hasMany` — not from the getter\'s own `ActiveQuery` return type, and a nullable '
+            . '`hasOne` is written as a `Type|null` union, never the `?Type` shorthand. A freshly '
+            . 'generated `hasOne` tag defaults to nullable, since the relation resolves to `null` at '
+            . 'runtime whenever no matching row exists, even when its link attribute is itself '
+            . 'non-nullable; `hasMany` is never made nullable, as it resolves to an empty array '
+            . 'instead. An already-declared `hasOne` tag is trusted instead of being defaulted: its '
+            . 'nullability is left alone unless the link attribute it matches on is itself nullable '
+            . '(per that attribute\'s own `@property`/`@property-read` tag), in which case null is '
+            . 'added to whatever type is already there. The tag\'s description is '
             . 'copied the same way: from the getter\'s own `@return` tag, or the setter\'s own `@param` '
             . 'tag, whichever is present (the getter\'s description wins when a merged `@property` tag '
             . 'has both), and is re-wrapped with `wordwrap()` to the configured `descriptionLineLength` '
@@ -292,6 +297,9 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                                 return $this->hasOne(Customer::class, ['id' => 'customer_id']);
                             }
 
+                            /**
+                             * @return OrderItem[] The line items included in the order.
+                             */
                             public function getItems()
                             {
                                 return $this->hasMany(OrderItem::class, ['order_id' => 'id']);
@@ -301,8 +309,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                     ,
                     <<<'CODE_SAMPLE'
                         /**
-                         * @property-read Customer $customer
-                         * @property-read OrderItem[] $items
+                         * @property-read Customer|null $customer
+                         * @property-read OrderItem[] $items The line items included in the order.
                          */
                         class Order extends \yii\db\ActiveRecord
                         {
@@ -311,6 +319,9 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                                 return $this->hasOne(Customer::class, ['id' => 'customer_id']);
                             }
 
+                            /**
+                             * @return OrderItem[] The line items included in the order.
+                             */
                             public function getItems()
                             {
                                 return $this->hasMany(OrderItem::class, ['order_id' => 'id']);
@@ -398,7 +409,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             $getterProperty = $this->resolveGetterPropertyName($methodName);
 
             if ($getterProperty !== null && $this->hasNoRequiredParams($classMethod)) {
-                $getters[$getterProperty] = $this->resolveGetterType($classMethod, $classReflection, $methodName);
+                $getters[$getterProperty] = $this->resolveGetterType($classMethod, $classReflection, $methodName, $getterProperty);
 
                 continue;
             }
@@ -460,9 +471,13 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     /**
      * @return array{0: TypeNode, 1: Type, 2: string}
      */
-    private function resolveGetterType(ClassMethod $classMethod, ClassReflection $classReflection, string $methodName): array
-    {
-        $relationType = $this->resolveRelationPropertyType($classMethod, $classReflection);
+    private function resolveGetterType(
+        ClassMethod $classMethod,
+        ClassReflection $classReflection,
+        string $methodName,
+        string $propertyName
+    ): array {
+        $relationType = $this->resolveRelationPropertyType($classMethod, $classReflection, $propertyName);
 
         if ($relationType !== null) {
             return [$relationType[0], $relationType[1], $this->resolveReturnTagDescription($classMethod)];
@@ -501,8 +516,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     /**
      * @return array{0: TypeNode, 1: Type}|null
      */
-    private function resolveRelationPropertyType(ClassMethod $classMethod, ClassReflection $classReflection): ?array
-    {
+    private function resolveRelationPropertyType(
+        ClassMethod $classMethod,
+        ClassReflection $classReflection,
+        string $propertyName
+    ): ?array {
         if ($classMethod->stmts === null) {
             return null;
         }
@@ -523,14 +541,36 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $objectType = new ObjectType($relatedClass['fqcn']);
 
         if (!$relation['isMultiple']) {
-            if ($this->isRelationNullable($relation['call'], $classReflection)) {
-                return [new NullableTypeNode($identifierTypeNode), TypeCombinator::addNull($objectType)];
+            if ($this->shouldHasOneRelationBeNullable($relation['call'], $classReflection, $propertyName)) {
+                return [
+                    new BracketsAwareUnionTypeNode([$identifierTypeNode, new IdentifierTypeNode('null')]),
+                    TypeCombinator::addNull($objectType),
+                ];
             }
 
             return [$identifierTypeNode, $objectType];
         }
 
-        return [new ArrayTypeNode($identifierTypeNode), new ArrayType(new IntegerType(), $objectType)];
+        return [new ArrayTypeNode($identifierTypeNode), new ArrayType(new MixedType(), $objectType)];
+    }
+
+    private function shouldHasOneRelationBeNullable(
+        MethodCall $methodCall,
+        ClassReflection $classReflection,
+        string $propertyName
+    ): bool {
+        if ($this->isRelationNullable($methodCall, $classReflection)) {
+            return true;
+        }
+
+        $existingPropertyTag = $this->propertyTagResolver->resolve($classReflection, $propertyName);
+        if ($existingPropertyTag === null) {
+            return true;
+        }
+
+        $existingReadableType = $existingPropertyTag->getReadableType();
+
+        return $existingReadableType !== null && TypeCombinator::containsNull($existingReadableType);
     }
 
     private function isRelationNullable(MethodCall $methodCall, ClassReflection $classReflection): bool
@@ -606,7 +646,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             return null;
         }
 
-        if ($this->isNames($expr->name, self::RELATION_METHOD_NAMES)
+        if (
+            $this->isNames($expr->name, self::RELATION_METHOD_NAMES)
             && $this->isObjectType($expr->var, new ObjectType(BaseActiveRecord::class))
         ) {
             return ['call' => $expr, 'isMultiple' => $this->isName($expr->name, 'hasMany')];
@@ -768,7 +809,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             static fn(PhpDocChildNode $child): bool => !in_array($child, $existingTagNodes, true)
         ));
 
-        foreach ($desiredTags as $tagName => [$typeNode, , $description]) {
+        foreach ($desiredTags as $tagName => [$typeNode,, $description]) {
             $classPhpDocInfo->addPhpDocTagNode(
                 new PhpDocTagNode($tagName, new PropertyTagValueNode($typeNode, '$' . $propertyName, $description))
             );

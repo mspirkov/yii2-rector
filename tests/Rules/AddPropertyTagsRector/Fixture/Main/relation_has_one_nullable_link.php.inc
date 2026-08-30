@@ -25,7 +25,7 @@ use yii\db\ActiveRecord;
 
 /**
  * @property int|null $category_id
- * @property-read ?Category $category
+ * @property-read Category|null $category
  */
 class ProductWithNullableCategoryRelation extends ActiveRecord
 {
