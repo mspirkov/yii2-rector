@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace MSpirkov\Yii2\Rector\Rules;
 
 use InvalidArgumentException;
+use MSpirkov\Yii2\Rector\PropertyTagResolver;
 use PhpParser\Node;
 use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PhpParser\Node\NullableType;
+use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Return_;
@@ -29,6 +32,7 @@ use PHPStan\Type\ArrayType;
 use PHPStan\Type\IntegerType;
 use PHPStan\Type\ObjectType;
 use PHPStan\Type\Type;
+use PHPStan\Type\TypeCombinator;
 use Rector\BetterPhpDocParser\PhpDocInfo\PhpDocInfo;
 use Rector\BetterPhpDocParser\PhpDocInfo\PhpDocInfoFactory;
 use Rector\Comments\NodeDocBlock\DocBlockUpdater;
@@ -71,6 +75,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     private StaticTypeMapper $staticTypeMapper;
 
+    private PropertyTagResolver $propertyTagResolver;
+
     /** @var list<string> */
     private array $skippedClasses = [];
 
@@ -83,12 +89,14 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         ReflectionProvider $reflectionProvider,
         PhpDocInfoFactory $phpDocInfoFactory,
         DocBlockUpdater $docBlockUpdater,
-        StaticTypeMapper $staticTypeMapper
+        StaticTypeMapper $staticTypeMapper,
+        PropertyTagResolver $propertyTagResolver
     ) {
         $this->reflectionProvider = $reflectionProvider;
         $this->phpDocInfoFactory = $phpDocInfoFactory;
         $this->docBlockUpdater = $docBlockUpdater;
         $this->staticTypeMapper = $staticTypeMapper;
+        $this->propertyTagResolver = $propertyTagResolver;
     }
 
     /**
@@ -176,7 +184,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             . 'name already in scope is never turned into a fully-qualified one. An ActiveRecord '
             . 'relation getter (a method returning `$this->hasOne()`/`$this->hasMany()`) is handled '
             . 'differently: the property type comes from the related class — or an array of it for '
-            . '`hasMany` — not from the getter\'s own `ActiveQuery` return type. The tag\'s description is '
+            . '`hasMany` — not from the getter\'s own `ActiveQuery` return type. A `hasOne` relation\'s '
+            . 'type is made nullable when any local link attribute it matches on is itself nullable '
+            . '(per that attribute\'s own `@property`/`@property-read` tag), since the relation is null '
+            . 'whenever the link can\'t be resolved; `hasMany` is never made nullable, as it resolves to '
+            . 'an empty array instead. The tag\'s description is '
             . 'copied the same way: from the getter\'s own `@return` tag, or the setter\'s own `@param` '
             . 'tag, whichever is present (the getter\'s description wins when a merged `@property` tag '
             . 'has both), and is re-wrapped with `wordwrap()` to the configured `descriptionLineLength` '
@@ -511,10 +523,56 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $objectType = new ObjectType($relatedClass['fqcn']);
 
         if (!$relation['isMultiple']) {
+            if ($this->isRelationNullable($relation['call'], $classReflection)) {
+                return [new NullableTypeNode($identifierTypeNode), TypeCombinator::addNull($objectType)];
+            }
+
             return [$identifierTypeNode, $objectType];
         }
 
         return [new ArrayTypeNode($identifierTypeNode), new ArrayType(new IntegerType(), $objectType)];
+    }
+
+    private function isRelationNullable(MethodCall $methodCall, ClassReflection $classReflection): bool
+    {
+        foreach ($this->resolveLinkAttributeNames($methodCall) as $attributeName) {
+            $propertyTag = $this->propertyTagResolver->resolve($classReflection, $attributeName);
+            $readableType = $propertyTag !== null ? $propertyTag->getReadableType() : null;
+
+            if ($readableType !== null && TypeCombinator::containsNull($readableType)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveLinkAttributeNames(MethodCall $methodCall): array
+    {
+        $args = $methodCall->getArgs();
+        if (!isset($args[1]) || $args[1]->unpack) {
+            return [];
+        }
+
+        $linkArgument = $args[1]->value;
+        if (!$linkArgument instanceof Array_) {
+            return [];
+        }
+
+        $attributeNames = [];
+
+        foreach ($linkArgument->items as $item) {
+            if (!$item->value instanceof String_) {
+                return [];
+            }
+
+            $attributeNames[] = $item->value->value;
+        }
+
+        return $attributeNames;
     }
 
     /**
