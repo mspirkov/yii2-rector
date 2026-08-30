@@ -22,10 +22,10 @@ final class ReplaceClassnameWithClassRector extends AbstractRector implements Do
     {
         return new RuleDefinition(
             'Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant. '
-            . '`self::className()` and `parent::className()` are left untouched: both are late-static-binding '
-            . '*forwarding* calls, so they are not generally equivalent to the compile-time `self::class`/'
-            . '`parent::class` once the surrounding class is subclassed — only `static::className()` and an '
-            . 'explicit `SomeClass::className()` are safe to rewrite unconditionally',
+            . '`self::className()` and `parent::className()` are left untouched, since both are '
+            . 'late-static-binding forwarding calls not generally equivalent to `self::class`/`parent::class` '
+            . 'once the class is subclassed — only `static::className()` and an explicit class name are '
+            . 'rewritten',
             [
                 new CodeSample(
                     <<<'CODE_SAMPLE'

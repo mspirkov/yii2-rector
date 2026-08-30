@@ -21,11 +21,9 @@ final class RemoveRedundantHtmlEncodeRector extends AbstractRector implements Do
         return new RuleDefinition(
             'Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan proves '
             . 'is a numeric string — digits only can\'t contain a character `htmlspecialchars()` '
-            . 'would touch, so the call is replaced by its bare `$content` argument (a trailing '
-            . '`$doubleEncode` argument, if present, is dropped too: it can\'t affect a string with '
-            . 'nothing to double-encode). Any other `$content` (a non-numeric string, a variable of '
-            . 'unknown or non-string type, `int`/`float`/`bool`, `null`, an array, an object, ...) '
-            . 'is left untouched',
+            . 'would touch, so the call is replaced by its bare `$content` argument (dropping a '
+            . 'trailing `$doubleEncode` argument, if present, too). Any other `$content` is left '
+            . 'untouched',
             [
                 new CodeSample(
                     <<<'CODE_SAMPLE'

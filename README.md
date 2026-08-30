@@ -40,9 +40,28 @@ use MSpirkov\Yii2\Rector\Yii2SetList;
 use Rector\Config\RectorConfig;
 
 return RectorConfig::configure()
-    ->withPaths([__DIR__ . '/src'])
+    ->withPaths(...)
     ->withSets([
         Yii2SetList::MAIN,
+    ]);
+```
+
+Individual rules can be enabled on their own via `->withRules([...])` instead of `->withSets([...])`, and any
+rule — whether pulled in through `Yii2SetList::MAIN` or added individually — can be turned off via
+`->withSkip([...])`:
+
+```php
+use MSpirkov\Yii2\Rector\Rules\MergeModelRulesRector;
+use MSpirkov\Yii2\Rector\Yii2SetList;
+use Rector\Config\RectorConfig;
+
+return RectorConfig::configure()
+    ->withPaths(...)
+    ->withSets([
+        Yii2SetList::MAIN,
+    ])
+    ->withSkip([
+        MergeModelRulesRector::class,
     ]);
 ```
 
@@ -54,9 +73,9 @@ return RectorConfig::configure()
 | --- | --- |
 | [AddPropertyTagsRector](#addpropertytagsrector) | Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\base\BaseObject` subclass, based on its own `getXxx()`/`setXxx()` method pairs and ActiveRecord relation getters (`hasOne()`/`hasMany()`). |
 | [MergeModelRulesRector](#mergemodelrulesrector) | Merge `yii\base\Model::rules()` entries that configure the same validator with the same options but a different attribute into one entry, combining their attributes into a single array (an attribute already present in another merged entry is not duplicated). |
-| [RemoveRedundantHtmlEncodeRector](#removeredundanthtmlencoderector) | Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan proves is a numeric string — digits only can't contain a character `htmlspecialchars()` would touch, so the call is replaced by its bare `$content` argument (a trailing `$doubleEncode` argument, if present, is dropped too: it can't affect a string with nothing to double-encode). |
+| [RemoveRedundantHtmlEncodeRector](#removeredundanthtmlencoderector) | Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan proves is a numeric string — digits only can't contain a character `htmlspecialchars()` would touch, so the call is replaced by its bare `$content` argument (dropping a trailing `$doubleEncode` argument, if present, too). |
 | [ReplaceClassnameWithClassRector](#replaceclassnamewithclassrector) | Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant. |
-| [ReplaceExistenceCheckWithExistsRector](#replaceexistencecheckwithexistsrector) | Replace an existence check on a `yii\db\QueryInterface` result (`yii\db\Query`, `yii\db\ActiveQuery`, ...) with the cheaper `->exists()` call. |
+| [ReplaceExistenceCheckWithExistsRector](#replaceexistencecheckwithexistsrector) | Replace an existence check on a `yii\db\QueryInterface` result with the cheaper `->exists()` call. |
 | [ReplaceFindWhereAllWithFindAllRector](#replacefindwhereallwithfindallrector) | Replace `find()->where([...])->all()` on an ActiveRecord class with the equivalent `findAll([...])`. |
 | [ReplaceFindWhereOneWithFindOneRector](#replacefindwhereonewithfindonerector) | Replace `find()->where([...])->one()` on an ActiveRecord class with the equivalent `findOne([...])`. |
 | [ReplaceGetterWithPropertyRector](#replacegetterwithpropertyrector) | Replace a `yii\base\BaseObject` getter call with the equivalent magic-property access, when the property is documented via a class-level `@property` or `@property-read` tag whose type matches the getter's return type, and there is no public native property of the same name (which would bypass the getter entirely) |
@@ -136,10 +155,10 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
 
 ### MergeModelRulesRector
 
-Merge `yii\base\Model::rules()` entries that configure the same validator with the same options but a different attribute into one entry, combining their attributes into a single array (an attribute already present in another merged entry is not duplicated). This is behavior-preserving: Yii2 builds one validator instance per rule entry and applies it to every attribute of that entry independently, so `[['login', 'password'], 'required']` runs exactly like the two separate `['login', 'required']` / `['password', 'required']` entries it replaces. Two entries only merge when everything after the attribute(s) — the validator and any options — is identical; a `rules()` body that isn't a single `return [...]` of literal rule arrays, or an entry whose shape doesn't look like `[attribute(s), validator, ...options]`, is left untouched
+Merge `yii\base\Model::rules()` entries that configure the same validator with the same options but a different attribute into one entry, combining their attributes into a single array (an attribute already present in another merged entry is not duplicated). Two entries only merge when everything after the attribute(s) — the validator and any options — is identical; a `rules()` body that isn't a single `return [...]` of literal rule arrays is left untouched
 
 ```diff
- class LoginForm extends \yii\base\Model
+ class LoginForm extends Model
  {
      public function rules(): array
      {
@@ -154,7 +173,7 @@ Merge `yii\base\Model::rules()` entries that configure the same validator with t
 
 ### RemoveRedundantHtmlEncodeRector
 
-Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan proves is a numeric string — digits only can't contain a character `htmlspecialchars()` would touch, so the call is replaced by its bare `$content` argument (a trailing `$doubleEncode` argument, if present, is dropped too: it can't affect a string with nothing to double-encode). Any other `$content` (a non-numeric string, a variable of unknown or non-string type, `int`/`float`/`bool`, `null`, an array, an object, ...) is left untouched
+Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan proves is a numeric string — digits only can't contain a character `htmlspecialchars()` would touch, so the call is replaced by its bare `$content` argument (dropping a trailing `$doubleEncode` argument, if present, too). Any other `$content` is left untouched
 
 ```diff
  <?php
@@ -170,7 +189,7 @@ Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan pro
 
 ### ReplaceClassnameWithClassRector
 
-Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant. `self::className()` and `parent::className()` are left untouched: both are late-static-binding *forwarding* calls, so they are not generally equivalent to the compile-time `self::class`/`parent::class` once the surrounding class is subclassed — only `static::className()` and an explicit `SomeClass::className()` are safe to rewrite unconditionally
+Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant. `self::className()` and `parent::className()` are left untouched, since both are late-static-binding forwarding calls not generally equivalent to `self::class`/`parent::class` once the class is subclassed — only `static::className()` and an explicit class name are rewritten
 
 ```diff
 -$class = SomeClass::className();
@@ -181,7 +200,7 @@ Replace the deprecated `yii\base\BaseObject::className()` call with the native `
 
 ### ReplaceExistenceCheckWithExistsRector
 
-Replace an existence check on a `yii\db\QueryInterface` result (`yii\db\Query`, `yii\db\ActiveQuery`, ...) with the cheaper `->exists()` call. Two shapes are recognised: a `->count()` comparison against the boundary literals `0`/`1` (`>`, `>=`, `<`, `<=`, `===`, `!==`, `==`, `!=`/`<>`, in either operand order), and a strict `->one() !== null` / `->one() === null` check. `count()` issues a `SELECT COUNT(*)` and `one()` fetches (and hydrates) a full row just to test for presence, while `exists()` issues a cheaper `SELECT 1 ... LIMIT 1` — worthwhile whenever the code only cares whether any row matches, not the exact count or the row itself. Checks that mean "no rows" (e.g. `count() < 1`, `count() === 0`, `one() === null`) are rewritten to the negated `!exists()`, not `exists()` — the two calls are not interchangeable, so it is worth a second look when reading the diff. Only the two literal boundaries that map unambiguously onto a presence/absence question are recognised: `count() > 1`, for instance, asks a different question and is left untouched.
+Replace an existence check on a `yii\db\QueryInterface` result with the cheaper `->exists()` call. Recognises a `->count()` comparison against the boundary literals `0`/`1` (in either operand order) and a strict `->one() !== null` / `->one() === null` check. A check that means "no rows" (e.g. `count() < 1`, `one() === null`) is rewritten to the negated `!exists()`, not `exists()`. Only the boundary comparisons that map unambiguously onto a presence/absence question are recognised — `count() > 1`, for instance, is left untouched
 
 ```diff
  public function emailIsTaken(string $email): bool
@@ -223,7 +242,7 @@ Replace a `yii\base\BaseObject` getter call with the equivalent magic-property a
  /**
   * @property-read string $prop
   */
- class Example extends \yii\base\BaseObject
+ class Example extends BaseObject
  {
      private string $_prop;
  

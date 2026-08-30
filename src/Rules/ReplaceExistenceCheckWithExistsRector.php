@@ -64,18 +64,12 @@ final class ReplaceExistenceCheckWithExistsRector extends AbstractRector impleme
     public function getRuleDefinition(): RuleDefinition
     {
         return new RuleDefinition(
-            'Replace an existence check on a `yii\db\QueryInterface` result (`yii\db\Query`, '
-            . '`yii\db\ActiveQuery`, ...) with the cheaper `->exists()` call. Two shapes are recognised: '
-            . 'a `->count()` comparison against the boundary literals `0`/`1` (`>`, `>=`, `<`, `<=`, `===`, '
-            . '`!==`, `==`, `!=`/`<>`, in either operand order), and a strict `->one() !== null` / '
-            . '`->one() === null` check. `count()` issues a `SELECT COUNT(*)` and `one()` fetches (and '
-            . 'hydrates) a full row just to test for presence, while `exists()` issues a cheaper '
-            . '`SELECT 1 ... LIMIT 1` — worthwhile whenever the code only cares whether any row matches, '
-            . 'not the exact count or the row itself. Checks that mean "no rows" (e.g. `count() < 1`, '
-            . '`count() === 0`, `one() === null`) are rewritten to the negated `!exists()`, not `exists()` '
-            . '— the two calls are not interchangeable, so it is worth a second look when reading the diff. '
-            . 'Only the two literal boundaries that map unambiguously onto a presence/absence question are '
-            . 'recognised: `count() > 1`, for instance, asks a different question and is left untouched.',
+            'Replace an existence check on a `yii\db\QueryInterface` result with the cheaper `->exists()` '
+            . 'call. Recognises a `->count()` comparison against the boundary literals `0`/`1` (in either '
+            . 'operand order) and a strict `->one() !== null` / `->one() === null` check. A check that '
+            . 'means "no rows" (e.g. `count() < 1`, `one() === null`) is rewritten to the negated '
+            . '`!exists()`, not `exists()`. Only the boundary comparisons that map unambiguously onto a '
+            . 'presence/absence question are recognised — `count() > 1`, for instance, is left untouched',
             [
                 new CodeSample(
                     <<<'CODE_SAMPLE'

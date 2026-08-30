@@ -47,7 +47,7 @@ final class ReplaceGetterWithPropertyRector extends AbstractRector implements Do
                         /**
                          * @property-read string $prop
                          */
-                        class Example extends \yii\base\BaseObject
+                        class Example extends BaseObject
                         {
                             private string $_prop;
 
@@ -63,7 +63,7 @@ final class ReplaceGetterWithPropertyRector extends AbstractRector implements Do
                         /**
                          * @property-read string $prop
                          */
-                        class Example extends \yii\base\BaseObject
+                        class Example extends BaseObject
                         {
                             private string $_prop;
 

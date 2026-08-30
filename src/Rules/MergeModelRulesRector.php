@@ -26,18 +26,13 @@ final class MergeModelRulesRector extends AbstractRector implements DocumentedRu
             'Merge `yii\base\Model::rules()` entries that configure the same validator with the same '
             . 'options but a different attribute into one entry, combining their attributes into a '
             . 'single array (an attribute already present in another merged entry is not duplicated). '
-            . 'This is behavior-preserving: Yii2 builds one validator instance per rule '
-            . 'entry and applies it to every attribute of that entry independently, so '
-            . '`[[\'login\', \'password\'], \'required\']` runs exactly like the two separate '
-            . '`[\'login\', \'required\']` / `[\'password\', \'required\']` entries it replaces. Two '
-            . 'entries only merge when everything after the attribute(s) — the validator and any '
+            . 'Two entries only merge when everything after the attribute(s) — the validator and any '
             . 'options — is identical; a `rules()` body that isn\'t a single `return [...]` of literal '
-            . 'rule arrays, or an entry whose shape doesn\'t look like `[attribute(s), validator, '
-            . '...options]`, is left untouched',
+            . 'rule arrays is left untouched',
             [
                 new CodeSample(
                     <<<'CODE_SAMPLE'
-                        class LoginForm extends \yii\base\Model
+                        class LoginForm extends Model
                         {
                             public function rules(): array
                             {
@@ -50,7 +45,7 @@ final class MergeModelRulesRector extends AbstractRector implements DocumentedRu
                         CODE_SAMPLE
                     ,
                     <<<'CODE_SAMPLE'
-                        class LoginForm extends \yii\base\Model
+                        class LoginForm extends Model
                         {
                             public function rules(): array
                             {
