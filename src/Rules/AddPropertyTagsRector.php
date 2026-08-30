@@ -481,11 +481,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         return $normalizedDescription;
     }
 
-    /**
-     * Wraps a normalized (single-line) description across the property tag's remaining width, once
-     * its `@property`/`@property-read`/`@property-write` prefix — the tag name, type, and `$variable`
-     * — has already consumed part of the configured `descriptionLineLength`.
-     */
     private function wrapDescriptionForTag(
         string $tagName,
         TypeNode $typeNode,
