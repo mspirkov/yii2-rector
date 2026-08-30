@@ -382,7 +382,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
             if ($getterProperty !== null && $this->hasNoRequiredParams($classMethod)) {
                 $getter = $this->resolveGetterType($classMethod, $classReflection, $methodName, $getterProperty);
-
                 if ($getter !== null) {
                     $getters[$getterProperty] = $getter;
                 }
@@ -394,7 +393,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
             if ($setterProperty !== null && $classMethod->getParams() !== []) {
                 $setter = $this->resolveFirstParamType($classMethod, $classReflection, $methodName);
-
                 if ($setter !== null) {
                     $setters[$setterProperty] = $setter;
                 }
@@ -419,7 +417,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             }
 
             $inheritedGetter = $this->resolveInheritedAccessorType($classReflection, $propertyName, true);
-
             if ($inheritedGetter !== null) {
                 $getters[$propertyName] = $inheritedGetter;
             }
@@ -600,7 +597,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
         $normalized = trim(implode("\n", [$firstLine, ...$strippedLines]));
         $normalized = (string) preg_replace('/(?<!\n)[ \t]*(```\w*)/', "\n$1", $normalized);
-        $normalized = (string) preg_replace('/(```\w*)[ \t]*(?!\n)/', "$1\n", $normalized);
+        $normalized = (string) preg_replace('/(```\w*)[ \t]*(?=[^\n])/', "$1\n", $normalized);
 
         return trim($normalized, " \t");
     }

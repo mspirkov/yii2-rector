@@ -37,7 +37,6 @@ use yii\base\BaseObject;
  *     'title' => 'Widget',
  * ]
  * ```
- *
  */
 class ProductWithCodeExampleReturnDescription extends BaseObject
 {
