@@ -50,18 +50,18 @@ return RectorConfig::configure()
 
 <!-- rules-table:start -->
 
-| Rule | Description |
-| --- | --- |
-| [AddPropertyTagsRector](#addpropertytagsrector) | Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\base\BaseObject` subclass, based on its own `getXxx()`/`setXxx()` method pairs. |
-| [MergeModelRulesRector](#mergemodelrulesrector) | Merge `yii\base\Model::rules()` entries that configure the same validator with the same options but a different attribute into one entry, combining their attributes into a single array (an attribute already present in another merged entry is not duplicated). |
-| [RemoveRedundantHtmlEncodeRector](#removeredundanthtmlencoderector) | Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan proves is a numeric string — digits only can't contain a character `htmlspecialchars()` would touch, so the call is replaced by its bare `$content` argument (a trailing `$doubleEncode` argument, if present, is dropped too: it can't affect a string with nothing to double-encode). |
-| [ReplaceClassnameWithClassRector](#replaceclassnamewithclassrector) | Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant. |
-| [ReplaceExistenceCheckWithExistsRector](#replaceexistencecheckwithexistsrector) | Replace an existence check on a `yii\db\QueryInterface` result (`yii\db\Query`, `yii\db\ActiveQuery`, ...) with the cheaper `->exists()` call. |
-| [ReplaceFindWhereAllWithFindAllRector](#replacefindwhereallwithfindallrector) | Replace `find()->where([...])->all()` on an ActiveRecord class with the equivalent `findAll([...])`. |
-| [ReplaceFindWhereOneWithFindOneRector](#replacefindwhereonewithfindonerector) | Replace `find()->where([...])->one()` on an ActiveRecord class with the equivalent `findOne([...])`. |
-| [ReplaceGetterWithPropertyRector](#replacegetterwithpropertyrector) | Replace a `yii\base\BaseObject` getter call with the equivalent magic-property access, when the property is documented via a class-level `@property` or `@property-read` tag whose type matches the getter's return type, and there is no public native property of the same name (which would bypass the getter entirely) |
-| [ReplaceSetterWithPropertyRector](#replacesetterwithpropertyrector) | Replace a `yii\base\BaseObject` setter call with the equivalent magic-property assignment, when the property is documented via a class-level `@property` or `@property-write` tag whose type matches the setter's parameter type, and there is no public native property of the same name (which would bypass the setter entirely) |
-| [ReplaceWhereEqualityConditionWithArrayRector](#replacewhereequalityconditionwitharrayrector) | Replace a single-column string `where()`/`andWhere()`/`orWhere()` condition (interpolated or concatenated) with the safer array condition format |
+| Rule                                                                                          | Description                                                                                                                                                                                                                                                                                                                                                          |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [AddPropertyTagsRector](#addpropertytagsrector)                                               | Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\base\BaseObject` subclass, based on its own `getXxx()`/`setXxx()` method pairs.                                                                                                                                                                                                       |
+| [MergeModelRulesRector](#mergemodelrulesrector)                                               | Merge `yii\base\Model::rules()` entries that configure the same validator with the same options but a different attribute into one entry, combining their attributes into a single array (an attribute already present in another merged entry is not duplicated).                                                                                                   |
+| [RemoveRedundantHtmlEncodeRector](#removeredundanthtmlencoderector)                           | Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan proves is a numeric string — digits only can't contain a character `htmlspecialchars()` would touch, so the call is replaced by its bare `$content` argument (a trailing `$doubleEncode` argument, if present, is dropped too: it can't affect a string with nothing to double-encode). |
+| [ReplaceClassnameWithClassRector](#replaceclassnamewithclassrector)                           | Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant.                                                                                                                                                                                                                                                                   |
+| [ReplaceExistenceCheckWithExistsRector](#replaceexistencecheckwithexistsrector)               | Replace an existence check on a `yii\db\QueryInterface` result (`yii\db\Query`, `yii\db\ActiveQuery`, ...) with the cheaper `->exists()` call.                                                                                                                                                                                                                       |
+| [ReplaceFindWhereAllWithFindAllRector](#replacefindwhereallwithfindallrector)                 | Replace `find()->where([...])->all()` on an ActiveRecord class with the equivalent `findAll([...])`.                                                                                                                                                                                                                                                                 |
+| [ReplaceFindWhereOneWithFindOneRector](#replacefindwhereonewithfindonerector)                 | Replace `find()->where([...])->one()` on an ActiveRecord class with the equivalent `findOne([...])`.                                                                                                                                                                                                                                                                 |
+| [ReplaceGetterWithPropertyRector](#replacegetterwithpropertyrector)                           | Replace a `yii\base\BaseObject` getter call with the equivalent magic-property access, when the property is documented via a class-level `@property` or `@property-read` tag whose type matches the getter's return type, and there is no public native property of the same name (which would bypass the getter entirely)                                           |
+| [ReplaceSetterWithPropertyRector](#replacesetterwithpropertyrector)                           | Replace a `yii\base\BaseObject` setter call with the equivalent magic-property assignment, when the property is documented via a class-level `@property` or `@property-write` tag whose type matches the setter's parameter type, and there is no public native property of the same name (which would bypass the setter entirely)                                   |
+| [ReplaceWhereEqualityConditionWithArrayRector](#replacewhereequalityconditionwitharrayrector) | Replace a single-column string `where()`/`andWhere()`/`orWhere()` condition (interpolated or concatenated) with the safer array condition format                                                                                                                                                                                                                     |
 
 <!-- rules-table:end -->
 
@@ -82,11 +82,11 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
  class Product extends \yii\base\BaseObject
  {
      private string $_name;
- 
+
      private int $_price;
- 
+
      private float $_discount;
- 
+
      /**
       * @return string The product name.
       */
@@ -94,7 +94,7 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          return $this->_name;
      }
- 
+
      /**
       * @param string $name The product name.
       */
@@ -102,12 +102,12 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          $this->_name = $name;
      }
- 
+
      public function getPrice(): int
      {
          return $this->_price;
      }
- 
+
      public function setDiscount(float $discount): void
      {
          $this->_discount = $discount;
@@ -126,7 +126,7 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          return $this->hasOne(Customer::class, ['id' => 'customer_id']);
      }
- 
+
      /**
       * @return OrderItem[] The line items included in the order.
       */
@@ -173,7 +173,7 @@ Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan pro
 
 ### ReplaceClassnameWithClassRector
 
-Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant. `self::className()` and `parent::className()` are left untouched: both are late-static-binding *forwarding* calls, so they are not generally equivalent to the compile-time `self::class`/`parent::class` once the surrounding class is subclassed — only `static::className()` and an explicit `SomeClass::className()` are safe to rewrite unconditionally
+Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant. `self::className()` and `parent::className()` are left untouched: both are late-static-binding _forwarding_ calls, so they are not generally equivalent to the compile-time `self::class`/`parent::class` once the surrounding class is subclassed — only `static::className()` and an explicit `SomeClass::className()` are safe to rewrite unconditionally
 
 ```diff
 -$class = SomeClass::className();
@@ -192,7 +192,7 @@ Replace an existence check on a `yii\db\QueryInterface` result (`yii\db\Query`, 
 -    return User::find()->where(['email' => $email])->one() !== null;
 +    return User::find()->where(['email' => $email])->exists();
  }
- 
+
  public function emailIsAvailable(string $email): bool
  {
 -    return User::find()->where(['email' => $email])->count() < 1;
@@ -229,13 +229,13 @@ Replace a `yii\base\BaseObject` getter call with the equivalent magic-property a
  class Example extends \yii\base\BaseObject
  {
      private string $_prop;
- 
+
      public function getProp(): string
      {
          return $this->_prop;
      }
  }
- 
+
 -$value = (new Example())->getProp();
 +$value = (new Example())->prop;
 ```
@@ -251,13 +251,13 @@ Replace a `yii\base\BaseObject` setter call with the equivalent magic-property a
  class Example extends \yii\base\BaseObject
  {
      private string $_prop;
- 
+
      public function setProp(string $value): void
      {
          $this->_prop = $value;
      }
  }
- 
+
 -(new Example())->setProp('value');
 +(new Example())->prop = 'value';
 ```
