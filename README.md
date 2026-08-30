@@ -12,7 +12,7 @@ to know about.
 
 [![PHP](https://img.shields.io/badge/%3E%3D7.4-7A86B8.svg?style=for-the-badge&logo=php&logoColor=white&label=PHP)](https://www.php.net/releases/7_4_0.php)
 [![Yii2](https://img.shields.io/badge/%3E%3D2.0.53-247BA0.svg?style=for-the-badge&logo=yii&logoColor=white&label=Yii)](https://github.com/yiisoft/yii2/releases/tag/2.0.53)
-[![PHPStan](https://img.shields.io/badge/%3E%3D2.2.0-247BA0.svg?style=for-the-badge&label=PHPStan)](https://github.com/phpstan/phpstan/releases/tag/2.2.0)
+[![Rector](https://img.shields.io/badge/%3E%3D2.6.0-247BA0.svg?style=for-the-badge&label=Rector)](https://github.com/rectorphp/rector/releases/tag/2.6.0)
 [![Tests](https://img.shields.io/github/actions/workflow/status/mspirkov/yii2-rector/ci.yml?branch=main&style=for-the-badge&logo=github&label=Tests)](https://github.com/mspirkov/yii2-rector/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/mspirkov/yii2-rector.svg?branch=main&style=for-the-badge&logo=codecov&logoColor=white&label=Coverage)](https://codecov.io/github/mspirkov/yii2-rector)
 ![PHPStan Level Max](https://img.shields.io/badge/Max-7A86B8.svg?style=for-the-badge&label=PHPStan%20Level)
@@ -82,11 +82,11 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
  class Product extends \yii\base\BaseObject
  {
      private string $_name;
- 
+
      private int $_price;
- 
+
      private float $_discount;
- 
+
      /**
       * @return string The product name.
       */
@@ -94,7 +94,7 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          return $this->_name;
      }
- 
+
      /**
       * @param string $name The product name.
       */
@@ -102,12 +102,12 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          $this->_name = $name;
      }
- 
+
      public function getPrice(): int
      {
          return $this->_price;
      }
- 
+
      public function setDiscount(float $discount): void
      {
          $this->_discount = $discount;
@@ -126,7 +126,7 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          return $this->hasOne(Customer::class, ['id' => 'customer_id']);
      }
- 
+
      public function getItems()
      {
          return $this->hasMany(OrderItem::class, ['order_id' => 'id']);
@@ -189,7 +189,7 @@ Replace an existence check on a `yii\db\QueryInterface` result (`yii\db\Query`, 
 -    return User::find()->where(['email' => $email])->one() !== null;
 +    return User::find()->where(['email' => $email])->exists();
  }
- 
+
  public function emailIsAvailable(string $email): bool
  {
 -    return User::find()->where(['email' => $email])->count() < 1;
@@ -226,13 +226,13 @@ Replace a `yii\base\BaseObject` getter call with the equivalent magic-property a
  class Example extends \yii\base\BaseObject
  {
      private string $_prop;
- 
+
      public function getProp(): string
      {
          return $this->_prop;
      }
  }
- 
+
 -$value = (new Example())->getProp();
 +$value = (new Example())->prop;
 ```
@@ -248,13 +248,13 @@ Replace a `yii\base\BaseObject` setter call with the equivalent magic-property a
  class Example extends \yii\base\BaseObject
  {
      private string $_prop;
- 
+
      public function setProp(string $value): void
      {
          $this->_prop = $value;
      }
  }
- 
+
 -(new Example())->setProp('value');
 +(new Example())->prop = 'value';
 ```
