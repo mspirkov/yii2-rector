@@ -74,8 +74,6 @@ final class ReplaceClassnameWithClassRector extends AbstractRector implements Do
             return null;
         }
 
-        $className = $this->getName($node->class);
-
-        return $this->nodeFactory->createClassConstFetch($className, 'class');
+        return $this->nodeFactory->createClassConstFetchFromName(clone $node->class, 'class');
     }
 }

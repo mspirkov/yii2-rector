@@ -27,6 +27,6 @@ class SomeService
 {
     public function run(): string
     {
-        return \App\SomeClass::class;
+        return SomeClass::class;
     }
 }
