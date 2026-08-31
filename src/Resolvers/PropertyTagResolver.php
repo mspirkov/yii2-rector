@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MSpirkov\Yii2\Rector;
+namespace MSpirkov\Yii2\Rector\Resolvers;
 
 use PHPStan\PhpDoc\Tag\PropertyTag;
 use PHPStan\Reflection\ClassReflection;

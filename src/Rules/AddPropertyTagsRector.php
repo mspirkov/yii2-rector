@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace MSpirkov\Yii2\Rector\Rules;
 
-use InvalidArgumentException;
-use MSpirkov\Yii2\Rector\ParamAnalyzer;
-use MSpirkov\Yii2\Rector\StringHelper;
-use MSpirkov\Yii2\Rector\TypeAnalyzer;
-use MSpirkov\Yii2\Rector\PropertyTagResolver;
+use MSpirkov\Yii2\Rector\Analyzers\BaseObjectAnalyzer;
+use MSpirkov\Yii2\Rector\Analyzers\ParamAnalyzer;
+use MSpirkov\Yii2\Rector\ValueObjects\PropertyTagSkipConfiguration;
+use MSpirkov\Yii2\Rector\Helpers\StringHelper;
+use MSpirkov\Yii2\Rector\Analyzers\TypeAnalyzer;
+use MSpirkov\Yii2\Rector\Resolvers\PropertyTagResolver;
 use PhpParser\Node;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Array_;
@@ -77,11 +78,9 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     private ParamAnalyzer $paramAnalyzer;
 
-    /** @var list<string> */
-    private array $skippedClasses = [];
+    private BaseObjectAnalyzer $baseObjectAnalyzer;
 
-    /** @var array<string, list<string>> */
-    private array $skippedPropertiesByClass = [];
+    private PropertyTagSkipConfiguration $skippedClassesConfiguration;
 
     public function __construct(
         ReflectionProvider $reflectionProvider,
@@ -90,7 +89,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         StaticTypeMapper $staticTypeMapper,
         PropertyTagResolver $propertyTagResolver,
         TypeAnalyzer $typeAnalyzer,
-        ParamAnalyzer $paramAnalyzer
+        ParamAnalyzer $paramAnalyzer,
+        BaseObjectAnalyzer $baseObjectAnalyzer
     ) {
         $this->reflectionProvider = $reflectionProvider;
         $this->phpDocInfoFactory = $phpDocInfoFactory;
@@ -99,6 +99,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $this->propertyTagResolver = $propertyTagResolver;
         $this->typeAnalyzer = $typeAnalyzer;
         $this->paramAnalyzer = $paramAnalyzer;
+        $this->baseObjectAnalyzer = $baseObjectAnalyzer;
+        $this->skippedClassesConfiguration = PropertyTagSkipConfiguration::init();
     }
 
     /**
@@ -106,70 +108,21 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
      */
     public function configure(array $configuration): void
     {
-        $skippedClasses = $configuration[self::SKIPPED_CLASSES] ?? [];
-
-        if (!is_array($skippedClasses)) {
-            throw new InvalidArgumentException(sprintf(
-                'The "%s" configuration must be an array, got "%s".',
-                self::SKIPPED_CLASSES,
-                gettype($skippedClasses)
-            ));
-        }
-
-        $fullySkippedClasses = [];
-        $skippedPropertiesByClass = [];
-
-        foreach ($skippedClasses as $key => $value) {
-            if (is_int($key)) {
-                if (!is_string($value)) {
-                    throw new InvalidArgumentException(sprintf(
-                        'Numeric keys of "%s" must map to a class-string, got "%s".',
-                        self::SKIPPED_CLASSES,
-                        gettype($value)
-                    ));
-                }
-
-                $fullySkippedClasses[] = $value;
-
-                continue;
-            }
-
-            if (!is_array($value)) {
-                throw new InvalidArgumentException(sprintf(
-                    'The "%s" entry for class "%s" must be a list of property names, got "%s".',
-                    self::SKIPPED_CLASSES,
-                    $key,
-                    gettype($value)
-                ));
-            }
-
-            foreach ($value as $propertyName) {
-                if (!is_string($propertyName)) {
-                    throw new InvalidArgumentException(sprintf(
-                        'The "%s" property list for class "%s" must contain only strings, got "%s".',
-                        self::SKIPPED_CLASSES,
-                        $key,
-                        gettype($propertyName)
-                    ));
-                }
-            }
-
-            $skippedPropertiesByClass[$key] = array_values($value);
-        }
-
-        $this->skippedClasses = $fullySkippedClasses;
-        $this->skippedPropertiesByClass = $skippedPropertiesByClass;
+        $this->skippedClassesConfiguration = PropertyTagSkipConfiguration::fromConfiguration(
+            $configuration,
+            self::SKIPPED_CLASSES
+        );
     }
 
     public function getRuleDefinition(): RuleDefinition
     {
         return new RuleDefinition(
             'Add (or correct) `@property`/`@property-read`/`@property-write` tags on a '
-            . '`yii\base\BaseObject` subclass, based on its own `getXxx()`/`setXxx()` method pairs '
-            . 'and ActiveRecord relation getters (`hasOne()`/`hasMany()`). Configurable via '
-            . '`skippedClasses` — a plain array value (e.g. `\'App\\Foo\'`) fully skips a class, while '
-            . 'a string key mapped to a list of property names (e.g. `\'App\\Bar\' => [\'name\']`) '
-            . 'skips only those properties',
+                . '`yii\base\BaseObject` subclass, based on its own `getXxx()`/`setXxx()` method pairs '
+                . 'and ActiveRecord relation getters (`hasOne()`/`hasMany()`). Configurable via '
+                . '`skippedClasses` — a plain array value (e.g. `\'App\\Foo\'`) fully skips a class, while '
+                . 'a string key mapped to a list of property names (e.g. `\'App\\Bar\' => [\'name\']`) '
+                . 'skips only those properties',
             [
                 new CodeSample(
                     <<<'CODE_SAMPLE'
@@ -207,8 +160,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                                 $this->_discount = $discount;
                             }
                         }
-                        CODE_SAMPLE
-                    ,
+                        CODE_SAMPLE,
                     <<<'CODE_SAMPLE'
                         /**
                          * @property string $name The product name.
@@ -265,8 +217,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                                 return $this->hasMany(OrderItem::class, ['order_id' => 'id']);
                             }
                         }
-                        CODE_SAMPLE
-                    ,
+                        CODE_SAMPLE,
                     <<<'CODE_SAMPLE'
                         /**
                          * @property-read Customer|null $customer
@@ -311,14 +262,14 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         /** @var string $className */
         $className = $this->getName($node);
 
-        if (in_array($className, $this->skippedClasses, true)) {
+        if ($this->skippedClassesConfiguration->isClassSkipped($className)) {
             return null;
         }
 
         $classReflection = $this->reflectionProvider->getClass($className);
         $desiredTagsByProperty = $this->collectDesiredPropertyTags($node, $classReflection);
 
-        foreach ($this->skippedPropertiesByClass[$className] ?? [] as $skippedProperty) {
+        foreach ($this->skippedClassesConfiguration->getSkippedProperties($className) as $skippedProperty) {
             unset($desiredTagsByProperty[$skippedProperty]);
         }
 
@@ -330,7 +281,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $hasChanged = false;
 
         foreach ($desiredTagsByProperty as $propertyName => $desiredTags) {
-            if ($this->hasConflictingNativeProperty($classReflection, $propertyName)) {
+            if ($this->baseObjectAnalyzer->hasConflictingNativeProperty($classReflection, $propertyName)) {
                 continue;
             }
 
@@ -440,32 +391,14 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
      */
     private function resolveInheritedAccessorType(ClassReflection $classReflection, string $propertyName, bool $isGetter): ?array
     {
-        $methodName = ($isGetter ? 'get' : 'set') . ucfirst($propertyName);
-        $nativeReflection = $classReflection->getNativeReflection();
-
-        if (!$nativeReflection->hasMethod($methodName)) {
-            return null;
-        }
-
-        $reflectionMethod = $nativeReflection->getMethod($methodName);
-
-        if (!$reflectionMethod->isPublic() || $reflectionMethod->isStatic()) {
-            return null;
-        }
-
-        $parameters = $reflectionMethod->getParameters();
-
-        if ($isGetter) {
-            if (!$this->paramAnalyzer->isAllNativeParamsOptional($parameters)) {
-                return null;
-            }
-        } elseif ($parameters === [] || !$this->paramAnalyzer->isAllNativeParamsOptionalAfterFirst($parameters)) {
+        $reflectionMethod = $this->baseObjectAnalyzer->findPropertyUsableMethod($classReflection, $propertyName, $isGetter);
+        if ($reflectionMethod === null) {
             return null;
         }
 
         $declaringClassReflection = $this->reflectionProvider->getClass($reflectionMethod->getDeclaringClass()->getName());
         $variant = ParametersAcceptorSelector::combineAcceptors(
-            $declaringClassReflection->getNativeMethod($methodName)->getVariants()
+            $declaringClassReflection->getNativeMethod($reflectionMethod->getName())->getVariants()
         );
 
         $type = $isGetter ? $variant->getReturnType() : $variant->getParameters()[0]->getType();
@@ -877,12 +810,6 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         }
 
         return null;
-    }
-
-    private function hasConflictingNativeProperty(ClassReflection $classReflection, string $propertyName): bool
-    {
-        return $classReflection->hasNativeProperty($propertyName)
-            && $classReflection->getNativeProperty($propertyName)->isPublic();
     }
 
     /**
