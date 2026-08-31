@@ -16,10 +16,6 @@ final class BaseObjectAnalyzer
         $this->paramAnalyzer = $paramAnalyzer;
     }
 
-    /**
-     * Finds the public, non-static getXxx()/setXxx() method Yii's magic __get()/__set() would
-     * actually call for the given property (own or inherited), or null if none is usable.
-     */
     public function findPropertyUsableMethod(ClassReflection $classReflection, string $propertyName, bool $isGetter): ?ReflectionMethod
     {
         $methodName = ($isGetter ? 'get' : 'set') . ucfirst($propertyName);
