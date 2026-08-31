@@ -73,10 +73,12 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
     {
         return new RuleDefinition(
             'Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\BaseObject` '
-            . 'subclass when the public accessor(s) it requires (own or inherited) are missing — a '
-            . '`@property-read` tag needs a `getXxx()`, a `@property-write` tag needs a `setXxx()`, and '
-            . 'a plain `@property` tag needs both. Typically left behind after the accessor it '
-            . 'documented was renamed or removed. `yii\db\BaseActiveRecord` and `yii\base\DynamicModel` '
+            . 'subclass when neither a matching public `getXxx()` nor `setXxx()` method exists (own or '
+            . 'inherited) — typically left behind after the accessor it documented was renamed or '
+            . 'removed. A tag backed by at least one accessor is left untouched even if it names the '
+            . 'wrong direction (e.g. `@property-read` with only a setter) — correcting it to match the '
+            . 'accessor that does exist is `AddPropertyTagsRector`\'s job, not this rule\'s, so the two '
+            . 'never touch the same tag. `yii\db\BaseActiveRecord` and `yii\base\DynamicModel` '
             . 'descendants are skipped entirely, since their magic properties aren\'t backed by '
             . 'getter/setter methods. Configurable via `skippedClasses` — a plain array value (e.g. '
             . '`\'App\\Foo\'`) fully skips a class, while a string key mapped to a list of property '
@@ -87,7 +89,6 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
                         /**
                          * @property string $name
                          * @property-read int $legacyCount
-                         * @property-write float $legacyDiscount
                          */
                         class Product extends BaseObject
                         {
@@ -101,11 +102,6 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
                             public function setName(string $name): void
                             {
                                 $this->_name = $name;
-                            }
-
-                            public function getLegacyDiscount(): float
-                            {
-                                return 0.0;
                             }
                         }
                         CODE_SAMPLE,
@@ -125,11 +121,6 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
                             public function setName(string $name): void
                             {
                                 $this->_name = $name;
-                            }
-
-                            public function getLegacyDiscount(): float
-                            {
-                                return 0.0;
                             }
                         }
                         CODE_SAMPLE
@@ -217,7 +208,11 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
                 continue;
             }
 
-            if (!$this->isRedundant($tagNode->name, $classReflection, $propertyName)) {
+            if ($this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, true)) {
+                continue;
+            }
+
+            if ($this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, false)) {
                 continue;
             }
 
@@ -225,19 +220,5 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
         }
 
         return $redundantTagNodes;
-    }
-
-    private function isRedundant(string $tagName, ClassReflection $classReflection, string $propertyName): bool
-    {
-        if ($tagName === '@property-read') {
-            return !$this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, true);
-        }
-
-        if ($tagName === '@property-write') {
-            return !$this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, false);
-        }
-
-        return !$this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, true)
-            || !$this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, false);
     }
 }

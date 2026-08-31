@@ -190,7 +190,7 @@ Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan pro
 
 ### RemoveRedundantPropertyTagsRector
 
-Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\BaseObject` subclass when neither a matching public `getXxx()` nor `setXxx()` method exists (own or inherited) — typically left behind after the accessor it documented was renamed or removed. `yii\db\BaseActiveRecord` and `yii\base\DynamicModel` descendants are skipped entirely, since their magic properties aren't backed by getter/setter methods. Configurable via `skippedClasses` — a plain array value (e.g. `'App\Foo'`) fully skips a class, while a string key mapped to a list of property names (e.g. `'App\Bar' => ['name']`) skips only those properties
+Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\BaseObject` subclass when neither a matching public `getXxx()` nor `setXxx()` method exists (own or inherited) — typically left behind after the accessor it documented was renamed or removed. A tag backed by at least one accessor is left untouched even if it names the wrong direction (e.g. `@property-read` with only a setter) — correcting it to match the accessor that does exist is `AddPropertyTagsRector`'s job, not this rule's, so the two never touch the same tag. `yii\db\BaseActiveRecord` and `yii\base\DynamicModel` descendants are skipped entirely, since their magic properties aren't backed by getter/setter methods. Configurable via `skippedClasses` — a plain array value (e.g. `'App\Foo'`) fully skips a class, while a string key mapped to a list of property names (e.g. `'App\Bar' => ['name']`) skips only those properties
 
 ```diff
  /**
