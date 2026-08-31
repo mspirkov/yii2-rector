@@ -1080,7 +1080,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         return [
             'typeNode' => $tag['typeNode'],
             'type' => $tag['type'],
-            'description' => $this->finalizeDescriptionForTag($tag['description'])
+            'description' => $this->finalizeDescriptionForTag($tag['description']),
         ];
     }
 
