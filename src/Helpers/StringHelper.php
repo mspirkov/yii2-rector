@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MSpirkov\Yii2\Rector;
+namespace MSpirkov\Yii2\Rector\Helpers;
 
 final class StringHelper
 {

@@ -74,6 +74,7 @@ return RectorConfig::configure()
 | [AddPropertyTagsRector](#addpropertytagsrector) | Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\base\BaseObject` subclass, based on its own `getXxx()`/`setXxx()` method pairs and ActiveRecord relation getters (`hasOne()`/`hasMany()`). |
 | [MergeModelRulesRector](#mergemodelrulesrector) | Merge `yii\base\Model::rules()` entries that configure the same validator with the same options but a different attribute into one entry, combining their attributes into a single array (an attribute already present in another merged entry is not duplicated). |
 | [RemoveRedundantHtmlEncodeRector](#removeredundanthtmlencoderector) | Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan proves is a numeric string — digits only can't contain a character `htmlspecialchars()` would touch, so the call is replaced by its bare `$content` argument (dropping a trailing `$doubleEncode` argument, if present, too). |
+| [RemoveRedundantPropertyTagsRector](#removeredundantpropertytagsrector) | Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\BaseObject` subclass when neither a matching public `getXxx()` nor `setXxx()` method exists (own or inherited) — typically left behind after the accessor it documented was renamed or removed. |
 | [ReplaceClassnameWithClassRector](#replaceclassnamewithclassrector) | Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant. |
 | [ReplaceExistenceCheckWithExistsRector](#replaceexistencecheckwithexistsrector) | Replace an existence check on a `yii\db\QueryInterface` result with the cheaper `->exists()` call. |
 | [ReplaceFindWhereAllWithFindAllRector](#replacefindwhereallwithfindallrector) | Replace `find()->where([...])->all()` on an ActiveRecord class with the equivalent `findAll([...])`. |
@@ -185,6 +186,31 @@ Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan pro
 -<?= Html::encode($id) ?>
 +<?= $id ?>
  <?= Html::encode($name) ?>
+```
+
+### RemoveRedundantPropertyTagsRector
+
+Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\BaseObject` subclass when neither a matching public `getXxx()` nor `setXxx()` method exists (own or inherited) — typically left behind after the accessor it documented was renamed or removed. A tag backed by at least one accessor is left untouched even if it names the wrong direction (e.g. `@property-read` with only a setter) — correcting it to match the accessor that does exist is `AddPropertyTagsRector`'s job, not this rule's, so the two never touch the same tag. `yii\db\BaseActiveRecord` and `yii\base\DynamicModel` descendants are skipped entirely, since their magic properties aren't backed by getter/setter methods. Configurable via `skippedClasses` — a plain array value (e.g. `'App\Foo'`) fully skips a class, while a string key mapped to a list of property names (e.g. `'App\Bar' => ['name']`) skips only those properties
+
+```diff
+ /**
+  * @property string $name
+- * @property-read int $legacyCount
+  */
+ class Product extends BaseObject
+ {
+     private string $_name;
+ 
+     public function getName(): string
+     {
+         return $this->_name;
+     }
+ 
+     public function setName(string $name): void
+     {
+         $this->_name = $name;
+     }
+ }
 ```
 
 ### ReplaceClassnameWithClassRector

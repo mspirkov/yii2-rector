@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MSpirkov\Yii2\Rector;
+namespace MSpirkov\Yii2\Rector\Analyzers;
 
 use PHPStan\PhpDocParser\Ast\Type\ConditionalTypeForParameterNode;
 use PHPStan\PhpDocParser\Ast\Type\ConditionalTypeNode;

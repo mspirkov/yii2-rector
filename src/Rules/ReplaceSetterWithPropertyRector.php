@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MSpirkov\Yii2\Rector\Rules;
 
-use MSpirkov\Yii2\Rector\PropertyTagResolver;
+use MSpirkov\Yii2\Rector\Resolvers\PropertyTagResolver;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\MethodCall;
