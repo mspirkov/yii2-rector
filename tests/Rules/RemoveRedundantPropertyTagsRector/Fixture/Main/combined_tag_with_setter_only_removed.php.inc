@@ -13,3 +13,16 @@ class ProductWithCombinedTagSetterOnly extends BaseObject
     {
     }
 }
+-----
+<?php
+
+namespace MSpirkov\Yii2\Rector\Tests\Rules\RemoveRedundantPropertyTagsRector\Fixture\Main;
+
+use yii\base\BaseObject;
+
+class ProductWithCombinedTagSetterOnly extends BaseObject
+{
+    public function setSku(string $sku): void
+    {
+    }
+}

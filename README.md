@@ -199,13 +199,16 @@ Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\Bas
   */
  class Product extends BaseObject
  {
+     private string $_name;
+ 
      public function getName(): string
      {
-         return 'Widget';
+         return $this->_name;
      }
  
      public function setName(string $name): void
      {
+         $this->_name = $name;
      }
  }
 ```

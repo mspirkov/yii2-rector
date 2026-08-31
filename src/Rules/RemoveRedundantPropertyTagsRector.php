@@ -73,29 +73,39 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
     {
         return new RuleDefinition(
             'Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\BaseObject` '
-            . 'subclass when neither a matching public `getXxx()` nor `setXxx()` method exists (own or '
-            . 'inherited) — typically left behind after the accessor it documented was renamed or '
-            . 'removed. `yii\db\BaseActiveRecord` and `yii\base\DynamicModel` descendants are skipped '
-            . 'entirely, since their magic properties aren\'t backed by getter/setter methods. '
-            . 'Configurable via `skippedClasses` — a plain array value (e.g. `\'App\\Foo\'`) fully '
-            . 'skips a class, while a string key mapped to a list of property names (e.g. '
-            . '`\'App\\Bar\' => [\'name\']`) skips only those properties',
+            . 'subclass when the public accessor(s) it requires (own or inherited) are missing — a '
+            . '`@property-read` tag needs a `getXxx()`, a `@property-write` tag needs a `setXxx()`, and '
+            . 'a plain `@property` tag needs both. Typically left behind after the accessor it '
+            . 'documented was renamed or removed. `yii\db\BaseActiveRecord` and `yii\base\DynamicModel` '
+            . 'descendants are skipped entirely, since their magic properties aren\'t backed by '
+            . 'getter/setter methods. Configurable via `skippedClasses` — a plain array value (e.g. '
+            . '`\'App\\Foo\'`) fully skips a class, while a string key mapped to a list of property '
+            . 'names (e.g. `\'App\\Bar\' => [\'name\']`) skips only those properties',
             [
                 new CodeSample(
                     <<<'CODE_SAMPLE'
                         /**
                          * @property string $name
                          * @property-read int $legacyCount
+                         * @property-write float $legacyDiscount
                          */
                         class Product extends BaseObject
                         {
+                            private string $_name;
+
                             public function getName(): string
                             {
-                                return 'Widget';
+                                return $this->_name;
                             }
 
                             public function setName(string $name): void
                             {
+                                $this->_name = $name;
+                            }
+
+                            public function getLegacyDiscount(): float
+                            {
+                                return 0.0;
                             }
                         }
                         CODE_SAMPLE,
@@ -105,13 +115,21 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
                          */
                         class Product extends BaseObject
                         {
+                            private string $_name;
+
                             public function getName(): string
                             {
-                                return 'Widget';
+                                return $this->_name;
                             }
 
                             public function setName(string $name): void
                             {
+                                $this->_name = $name;
+                            }
+
+                            public function getLegacyDiscount(): float
+                            {
+                                return 0.0;
                             }
                         }
                         CODE_SAMPLE
@@ -199,11 +217,7 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
                 continue;
             }
 
-            if ($this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, true)) {
-                continue;
-            }
-
-            if ($this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, false)) {
+            if (!$this->isRedundant($tagNode->name, $classReflection, $propertyName)) {
                 continue;
             }
 
@@ -211,5 +225,19 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
         }
 
         return $redundantTagNodes;
+    }
+
+    private function isRedundant(string $tagName, ClassReflection $classReflection, string $propertyName): bool
+    {
+        if ($tagName === '@property-read') {
+            return !$this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, true);
+        }
+
+        if ($tagName === '@property-write') {
+            return !$this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, false);
+        }
+
+        return !$this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, true)
+            || !$this->baseObjectAnalyzer->hasPropertyUsableMethod($classReflection, $propertyName, false);
     }
 }
