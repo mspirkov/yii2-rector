@@ -6,6 +6,7 @@ namespace MSpirkov\Yii2\Rector\Rules;
 
 use InvalidArgumentException;
 use MSpirkov\Yii2\Rector\ParamAnalyzer;
+use MSpirkov\Yii2\Rector\StringHelper;
 use MSpirkov\Yii2\Rector\TypeAnalyzer;
 use MSpirkov\Yii2\Rector\PropertyTagResolver;
 use PhpParser\Node;
@@ -20,7 +21,6 @@ use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Return_;
-use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocChildNode;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocTagNode;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PropertyTagValueNode;
 use PHPStan\PhpDocParser\Ast\Type\ArrayTypeNode;
@@ -570,10 +570,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     private function finalizeDescriptionPunctuation(string $description): string
     {
-        $body = rtrim($description, "\n");
+        $body = ucfirst(rtrim($description, "\n"));
         $trailingNewlines = substr($description, strlen($body));
-
-        $body = ucfirst($body);
 
         if (substr($body, -3) !== '```' && !in_array(substr($body, -1), ['.', '!', '?', ':'], true)) {
             $body .= '.';
@@ -623,13 +621,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         }
 
         $relation = $this->findRelationCall($classMethod->stmts);
-
         if ($relation === null) {
             return null;
         }
 
         $relatedClass = $this->resolveRelatedClassNameFromCall($relation['call'], $classReflection);
-
         if ($relatedClass === null) {
             return null;
         }
@@ -904,17 +900,36 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         }
 
         $existingTagNodes = array_column($existingTags, 'tagNode');
-        $phpDocNode = $classPhpDocInfo->getPhpDocNode();
-        $phpDocNode->children = array_values(array_filter(
-            $phpDocNode->children,
-            static fn(PhpDocChildNode $child): bool => !in_array($child, $existingTagNodes, true)
-        ));
+        $remainingTags = $desiredTags;
 
-        foreach ($desiredTags as $tagName => [$typeNode,, $description]) {
-            $classPhpDocInfo->addPhpDocTagNode(
-                new PhpDocTagNode($tagName, new PropertyTagValueNode($typeNode, '$' . $propertyName, $description))
-            );
+        $phpDocNode = $classPhpDocInfo->getPhpDocNode();
+        $children = [];
+        $insertAt = null;
+
+        foreach ($phpDocNode->children as $child) {
+            if ($child instanceof PhpDocTagNode && in_array($child, $existingTagNodes, true)) {
+                if (isset($remainingTags[$child->name])) {
+                    [$typeNode,, $description] = $remainingTags[$child->name];
+                    $child->value = new PropertyTagValueNode($typeNode, '$' . $propertyName, $description);
+                    $children[] = $child;
+                    unset($remainingTags[$child->name]);
+                }
+
+                $insertAt = count($children);
+
+                continue;
+            }
+
+            $children[] = $child;
         }
+
+        $newTagNodes = [];
+        foreach ($remainingTags as $tagName => [$typeNode,, $description]) {
+            $newTagNodes[] = new PhpDocTagNode($tagName, new PropertyTagValueNode($typeNode, '$' . $propertyName, $description));
+        }
+
+        array_splice($children, $insertAt ?? count($children), 0, $newTagNodes);
+        $phpDocNode->children = $children;
 
         return true;
     }
@@ -1000,7 +1015,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             }
 
             $existingValue = $existingByTagName[$tagName][0];
-            if ($existingValue->description !== $desiredDescription) {
+            if (!$this->isDescriptionsEquivalent($existingValue->description, $desiredDescription)) {
                 return false;
             }
 
@@ -1015,5 +1030,10 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         }
 
         return true;
+    }
+
+    private function isDescriptionsEquivalent(string $existingDescription, string $desiredDescription): bool
+    {
+        return StringHelper::collapseWhitespace($existingDescription) === StringHelper::collapseWhitespace($desiredDescription);
     }
 }
