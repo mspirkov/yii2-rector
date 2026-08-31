@@ -975,21 +975,25 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
         $newTagNodes = [];
         foreach ($remainingTags as $tagName => $tag) {
-            $newTagNodes[] = new PhpDocTagNode($tagName, new PropertyTagValueNode($tag['typeNode'], '$' . $propertyName, $tag['description']));
+            $newTagNodes[] = new PhpDocTagNode(
+                $tagName,
+                new PropertyTagValueNode($tag['typeNode'], '$' . $propertyName, $tag['description'])
+            );
         }
 
-        array_splice($children, $insertAt ?? $this->resolveInsertBeforeConfiguredTagIndex($children) ?? count($children), 0, $newTagNodes);
+        array_splice(
+            $children,
+            $insertAt ?? $this->resolveInsertBeforeConfiguredTagIndex($children) ?? count($children),
+            0,
+            $newTagNodes
+        );
+
         $phpDocNode->children = $children;
 
         return true;
     }
 
     /**
-     * If we couldn't resolve a property's getter/setter to anything more precise than an implicit
-     * `mixed` (as opposed to an explicit `mixed` the developer wrote on purpose), don't let that
-     * downgrade an already-declared, more precise type for the same tag — keep the existing tag's
-     * type and description verbatim instead.
-     *
      * @param list<array{tagNode: PhpDocTagNode, value: PropertyTagValueNode}> $existingTags
      * @param array<string, PropertyTypeInfo> $desiredTags
      *
