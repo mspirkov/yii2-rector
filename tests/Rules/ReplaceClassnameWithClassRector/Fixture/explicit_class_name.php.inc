@@ -23,6 +23,6 @@ class SomeService
 {
     public function run(): string
     {
-        return \MSpirkov\Yii2\Rector\Tests\Rules\ReplaceClassnameWithClassRector\Source\SomeClass::class;
+        return SomeClass::class;
     }
 }
