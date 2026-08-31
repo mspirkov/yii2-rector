@@ -917,7 +917,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         foreach ($phpDocNode->children as $child) {
             if (in_array($child, $existingTagNodes, true)) {
                 if (!$inserted) {
-                    array_push($children, ...$newTagNodes);
+                    $children = array_merge($children, $newTagNodes);
                     $inserted = true;
                 }
 
@@ -928,7 +928,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         }
 
         if (!$inserted) {
-            array_push($children, ...$newTagNodes);
+            $children = array_merge($children, $newTagNodes);
         }
 
         $phpDocNode->children = $children;
