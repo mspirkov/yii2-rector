@@ -72,6 +72,16 @@ README.md                      Has a machine-generated "Rules" section — never
    not just convention — `AbstractRector` itself doesn't declare `getRuleDefinition()`, and
    `tests/RulesDocumentationTest.php` (see below) needs the interface to call it type-safely.
 
+   **Keep the `getRuleDefinition()` description to three things**: what the rule does at a basic,
+   functional level; one full-but-not-huge `CodeSample` per distinct scenario the rule handles; and,
+   if `ConfigurableRectorInterface` is implemented, a plain description of each configuration option
+   (name, shape, default). Don't describe implementation-level subtleties or edge-case behavior
+   there (e.g. "an implicit `mixed` won't overwrite an already-more-precise tag, but an explicit one
+   will") — that reasoning belongs in the code itself (names, and a comment only where the *why*
+   isn't obvious from the code), not in the user-facing/README-facing description text. This text
+   ends up verbatim in `README.md` (see below), so it should read like end-user documentation, not
+   an implementation note.
+
 2. **Register it** in `config/sets/main.php`'s `$rectorConfig->rules([...])` array so it's part
    of `Yii2SetList::MAIN`.
 

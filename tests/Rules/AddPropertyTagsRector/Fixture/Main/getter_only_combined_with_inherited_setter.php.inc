@@ -19,7 +19,7 @@ namespace MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Fixture\Main;
 use MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source\ColorBase;
 
 /**
- * @property string $color
+ * @property string $color The new color value.
  */
 class GadgetWithLocalGetterAndInheritedSetter extends ColorBase
 {

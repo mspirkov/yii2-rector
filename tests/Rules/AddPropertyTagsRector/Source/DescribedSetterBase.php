@@ -6,10 +6,10 @@ namespace MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source;
 
 use yii\base\BaseObject;
 
-class ColorBase extends BaseObject
+class DescribedSetterBase extends BaseObject
 {
     /**
-     * @param string $color The new color value.
+     * @param string $label The new display label.
      */
-    public function setColor(string $color): void {}
+    public function setLabel(string $label): void {}
 }

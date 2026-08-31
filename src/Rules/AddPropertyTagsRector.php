@@ -6,6 +6,7 @@ namespace MSpirkov\Yii2\Rector\Rules;
 
 use MSpirkov\Yii2\Rector\Analyzers\BaseObjectAnalyzer;
 use MSpirkov\Yii2\Rector\Analyzers\ParamAnalyzer;
+use MSpirkov\Yii2\Rector\ValueObjects\PropertyTagInsertBeforeConfiguration;
 use MSpirkov\Yii2\Rector\ValueObjects\PropertyTagSkipConfiguration;
 use MSpirkov\Yii2\Rector\Helpers\StringHelper;
 use MSpirkov\Yii2\Rector\Analyzers\TypeAnalyzer;
@@ -22,6 +23,7 @@ use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Return_;
+use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocChildNode;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocTagNode;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PropertyTagValueNode;
 use PHPStan\PhpDocParser\Ast\Type\ArrayTypeNode;
@@ -42,20 +44,30 @@ use Rector\BetterPhpDocParser\ValueObject\Type\BracketsAwareUnionTypeNode;
 use Rector\Comments\NodeDocBlock\DocBlockUpdater;
 use Rector\Contract\Rector\ConfigurableRectorInterface;
 use Rector\NodeTypeResolver\Node\AttributeKey;
+use Rector\PhpParser\AstResolver;
 use Rector\Rector\AbstractRector;
 use Rector\StaticTypeMapper\StaticTypeMapper;
 use Symplify\RuleDocGenerator\Contract\DocumentedRuleInterface;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
 use yii\base\BaseObject;
+use yii\db\ActiveQuery;
 use yii\db\BaseActiveRecord;
 
+/**
+ * @phpstan-type PropertyTypeInfo array{typeNode: TypeNode, type: Type, description: string}
+ */
 final class AddPropertyTagsRector extends AbstractRector implements ConfigurableRectorInterface, DocumentedRuleInterface
 {
     /**
      * @internal
      */
     public const SKIPPED_CLASSES = 'skippedClasses';
+
+    /**
+     * @internal
+     */
+    public const INSERT_BEFORE_TAGS = 'insertBeforeTags';
 
     private const GETTER_METHOD_NAME_PATTERN = '/^get(?<property>[A-Z]\w*)$/';
 
@@ -80,7 +92,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     private BaseObjectAnalyzer $baseObjectAnalyzer;
 
+    private AstResolver $astResolver;
+
     private PropertyTagSkipConfiguration $skippedClassesConfiguration;
+
+    private PropertyTagInsertBeforeConfiguration $insertBeforeTagsConfiguration;
 
     public function __construct(
         ReflectionProvider $reflectionProvider,
@@ -90,7 +106,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         PropertyTagResolver $propertyTagResolver,
         TypeAnalyzer $typeAnalyzer,
         ParamAnalyzer $paramAnalyzer,
-        BaseObjectAnalyzer $baseObjectAnalyzer
+        BaseObjectAnalyzer $baseObjectAnalyzer,
+        AstResolver $astResolver
     ) {
         $this->reflectionProvider = $reflectionProvider;
         $this->phpDocInfoFactory = $phpDocInfoFactory;
@@ -100,7 +117,9 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $this->typeAnalyzer = $typeAnalyzer;
         $this->paramAnalyzer = $paramAnalyzer;
         $this->baseObjectAnalyzer = $baseObjectAnalyzer;
+        $this->astResolver = $astResolver;
         $this->skippedClassesConfiguration = PropertyTagSkipConfiguration::init();
+        $this->insertBeforeTagsConfiguration = PropertyTagInsertBeforeConfiguration::init();
     }
 
     /**
@@ -112,6 +131,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             $configuration,
             self::SKIPPED_CLASSES
         );
+
+        $this->insertBeforeTagsConfiguration = PropertyTagInsertBeforeConfiguration::fromConfiguration(
+            $configuration,
+            self::INSERT_BEFORE_TAGS
+        );
     }
 
     public function getRuleDefinition(): RuleDefinition
@@ -122,7 +146,9 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             . 'and ActiveRecord relation getters (`hasOne()`/`hasMany()`). Configurable via '
             . '`skippedClasses` — a plain array value (e.g. `\'App\\Foo\'`) fully skips a class, while '
             . 'a string key mapped to a list of property names (e.g. `\'App\\Bar\' => [\'name\']`) '
-            . 'skips only those properties',
+            . 'skips only those properties — and `insertBeforeTags`, a list of PHPDoc tag names '
+            . '(defaulting to `[\'@author\', \'@since\', \'@mixin\']`) before which newly added '
+            . '`@property*` tags are inserted',
             [
                 new CodeSample(
                     <<<'CODE_SAMPLE'
@@ -302,7 +328,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     }
 
     /**
-     * @return array<string, array<string, array{0: TypeNode, 1: Type, 2: string}>>
+     * @return array<string, array<string, PropertyTypeInfo>>
      */
     private function collectDesiredPropertyTags(Class_ $class, ClassReflection $classReflection): array
     {
@@ -320,6 +346,10 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             if ($getterProperty !== null && $this->paramAnalyzer->isAllParamsOptional($classMethod->getParams())) {
                 $getter = $this->resolveGetterType($classMethod, $classReflection, $methodName, $getterProperty);
                 if ($getter !== null) {
+                    if ($getter['description'] === '') {
+                        $getter['description'] = $this->resolveAncestorDescription($classReflection, $methodName, true);
+                    }
+
                     $getters[$getterProperty] = $getter;
                 }
 
@@ -335,6 +365,10 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             ) {
                 $setter = $this->resolveFirstParamType($classMethod, $classReflection, $methodName);
                 if ($setter !== null) {
+                    if ($setter['description'] === '') {
+                        $setter['description'] = $this->resolveAncestorDescription($classReflection, $methodName, false);
+                    }
+
                     $setters[$setterProperty] = $setter;
                 }
             }
@@ -389,7 +423,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     }
 
     /**
-     * @return array{0: TypeNode, 1: Type, 2: string}|null
+     * @return PropertyTypeInfo|null
      */
     private function resolveInheritedAccessorType(ClassReflection $classReflection, string $propertyName, bool $isGetter): ?array
     {
@@ -398,18 +432,72 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             return null;
         }
 
+        $methodName = $reflectionMethod->getName();
         $declaringClassReflection = $this->reflectionProvider->getClass($reflectionMethod->getDeclaringClass()->getName());
         $variant = ParametersAcceptorSelector::combineAcceptors(
-            $declaringClassReflection->getNativeMethod($reflectionMethod->getName())->getVariants()
+            $declaringClassReflection->getNativeMethod($methodName)->getVariants()
         );
 
         $type = $isGetter ? $variant->getReturnType() : $variant->getParameters()[0]->getType();
+        $description = $this->resolveAncestorDescription($classReflection, $methodName, $isGetter);
 
-        return [$this->staticTypeMapper->mapPHPStanTypeToPHPStanPhpDocTypeNode($type), $type, ''];
+        return [
+            'typeNode' => $this->staticTypeMapper->mapPHPStanTypeToPHPStanPhpDocTypeNode($type),
+            'type' => $type,
+            'description' => $description,
+        ];
+    }
+
+    private function resolveAncestorDescription(ClassReflection $classReflection, string $methodName, bool $isGetter): string
+    {
+        $ancestorClassReflection = $classReflection->getParentClass();
+
+        while (
+            $ancestorClassReflection instanceof ClassReflection
+            && $ancestorClassReflection->getNativeReflection()->hasMethod($methodName)
+        ) {
+            $reflectionMethod = $ancestorClassReflection->getNativeReflection()->getMethod($methodName);
+            $declaringClassReflection = $this->reflectionProvider->getClass($reflectionMethod->getDeclaringClass()->getName());
+
+            $classMethod = $this->astResolver->resolveClassMethodFromMethodReflection(
+                $declaringClassReflection->getNativeMethod($methodName)
+            );
+
+            if ($classMethod !== null) {
+                $description = $isGetter
+                    ? $this->resolveReturnTagDescription($classMethod)
+                    : $this->resolveFirstParamDescription($classMethod);
+
+                if ($description !== '') {
+                    return $description;
+                }
+            }
+
+            $ancestorClassReflection = $declaringClassReflection->getParentClass();
+        }
+
+        return '';
+    }
+
+    private function resolveFirstParamDescription(ClassMethod $classMethod): string
+    {
+        if ($classMethod->getParams() === []) {
+            return '';
+        }
+
+        $firstParam = $classMethod->getParams()[0];
+
+        /** @var string $paramName */
+        $paramName = $this->getName($firstParam->var);
+
+        $methodPhpDocInfo = $this->phpDocInfoFactory->createFromNodeOrEmpty($classMethod);
+        $paramTagValue = $methodPhpDocInfo->getParamTagValueByName($paramName);
+
+        return $paramTagValue !== null ? $this->normalizeDescription($paramTagValue->description) : '';
     }
 
     /**
-     * @param array<string, array{0: TypeNode, 1: Type, 2: string}> $desiredTags
+     * @param array<string, PropertyTypeInfo> $desiredTags
      */
     private function isRedundantWithAncestor(ClassReflection $classReflection, string $propertyName, array $desiredTags): bool
     {
@@ -424,13 +512,13 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $desiredReadableType = null;
         $desiredWritableType = null;
 
-        foreach ($desiredTags as $tagName => [, $type]) {
+        foreach ($desiredTags as $tagName => $tag) {
             if ($tagName === '@property' || $tagName === '@property-read') {
-                $desiredReadableType = $type;
+                $desiredReadableType = $tag['type'];
             }
 
             if ($tagName === '@property' || $tagName === '@property-write') {
-                $desiredWritableType = $type;
+                $desiredWritableType = $tag['type'];
             }
         }
 
@@ -466,7 +554,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     }
 
     /**
-     * @return array{0: TypeNode, 1: Type, 2: string}|null
+     * @return PropertyTypeInfo|null
      */
     private function resolveGetterType(
         ClassMethod $classMethod,
@@ -476,10 +564,25 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     ): ?array {
         $relationType = $this->resolveRelationPropertyType($classMethod, $classReflection, $propertyName);
         if ($relationType !== null) {
-            return [$relationType[0], $relationType[1], $this->resolveReturnTagDescription($classMethod)];
+            return [
+                'typeNode' => $relationType['typeNode'],
+                'type' => $relationType['type'],
+                'description' => $this->resolveReturnTagDescription($classMethod),
+            ];
         }
 
-        return $this->resolveReturnType($classMethod, $classReflection, $methodName);
+        $returnType = $this->resolveReturnType($classMethod, $classReflection, $methodName);
+        if ($returnType !== null && $this->isActiveRecordActiveQueryGetter($returnType['type'], $classReflection)) {
+            return null;
+        }
+
+        return $returnType;
+    }
+
+    private function isActiveRecordActiveQueryGetter(Type $returnType, ClassReflection $classReflection): bool
+    {
+        return $classReflection->is(BaseActiveRecord::class)
+            && (new ObjectType(ActiveQuery::class))->isSuperTypeOf($returnType)->yes();
     }
 
     private function resolveReturnTagDescription(ClassMethod $classMethod): string
@@ -544,7 +647,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     }
 
     /**
-     * @return array{0: TypeNode, 1: Type}|null
+     * @return array{typeNode: TypeNode, type: Type}|null
      */
     private function resolveRelationPropertyType(
         ClassMethod $classMethod,
@@ -571,15 +674,18 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         if (!$relation['isMultiple']) {
             if ($this->shouldHasOneRelationBeNullable($relation['call'], $classReflection, $propertyName)) {
                 return [
-                    new BracketsAwareUnionTypeNode([$identifierTypeNode, new IdentifierTypeNode('null')]),
-                    TypeCombinator::addNull($objectType),
+                    'typeNode' => new BracketsAwareUnionTypeNode([$identifierTypeNode, new IdentifierTypeNode('null')]),
+                    'type' => TypeCombinator::addNull($objectType),
                 ];
             }
 
-            return [$identifierTypeNode, $objectType];
+            return ['typeNode' => $identifierTypeNode, 'type' => $objectType];
         }
 
-        return [new ArrayTypeNode($identifierTypeNode), new ArrayType(new MixedType(), $objectType)];
+        return [
+            'typeNode' => new ArrayTypeNode($identifierTypeNode),
+            'type' => new ArrayType(new MixedType(), $objectType),
+        ];
     }
 
     private function shouldHasOneRelationBeNullable(
@@ -733,7 +839,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     }
 
     /**
-     * @return array{0: TypeNode, 1: Type, 2: string}|null
+     * @return PropertyTypeInfo|null
      */
     private function resolveReturnType(ClassMethod $classMethod, ClassReflection $classReflection, string $methodName): ?array
     {
@@ -747,7 +853,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
             $type = $this->staticTypeMapper->mapPHPStanPhpDocTypeNodeToPHPStanType($returnTagValue->type, $classMethod);
 
-            return [$returnTagValue->type, $type, $this->normalizeDescription($returnTagValue->description)];
+            return [
+                'typeNode' => $returnTagValue->type,
+                'type' => $type,
+                'description' => $this->normalizeDescription($returnTagValue->description),
+            ];
         }
 
         $type = ParametersAcceptorSelector::combineAcceptors(
@@ -757,11 +867,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $typeNode = $this->resolveNativeTypeNode($classMethod->returnType)
             ?? $this->staticTypeMapper->mapPHPStanTypeToPHPStanPhpDocTypeNode($type);
 
-        return [$typeNode, $type, ''];
+        return ['typeNode' => $typeNode, 'type' => $type, 'description' => ''];
     }
 
     /**
-     * @return array{0: TypeNode, 1: Type, 2: string}|null
+     * @return PropertyTypeInfo|null
      */
     private function resolveFirstParamType(ClassMethod $classMethod, ClassReflection $classReflection, string $methodName): ?array
     {
@@ -780,7 +890,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
             $type = $this->staticTypeMapper->mapPHPStanPhpDocTypeNodeToPHPStanType($paramTagValue->type, $classMethod);
 
-            return [$paramTagValue->type, $type, $this->normalizeDescription($paramTagValue->description)];
+            return [
+                'typeNode' => $paramTagValue->type,
+                'type' => $type,
+                'description' => $this->normalizeDescription($paramTagValue->description),
+            ];
         }
 
         $parameters = ParametersAcceptorSelector::combineAcceptors(
@@ -792,7 +906,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $typeNode = $this->resolveNativeTypeNode($firstParam->type)
             ?? $this->staticTypeMapper->mapPHPStanTypeToPHPStanPhpDocTypeNode($type);
 
-        return [$typeNode, $type, ''];
+        return ['typeNode' => $typeNode, 'type' => $type, 'description' => ''];
     }
 
     private function resolveNativeTypeNode(?Node $typeNode): ?TypeNode
@@ -815,7 +929,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     }
 
     /**
-     * @param array<string, array{0: TypeNode, 1: Type, 2: string}> $desiredTags
+     * @param array<string, PropertyTypeInfo> $desiredTags
      */
     private function applyPropertyTag(
         PhpDocInfo $classPhpDocInfo,
@@ -824,6 +938,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         array $desiredTags
     ): bool {
         $existingTags = $this->getExistingPropertyTagNodes($classPhpDocInfo, $propertyName);
+        $desiredTags = $this->preserveExistingTypesOverUnresolvedMixed($existingTags, $desiredTags, $contextNode);
+
         if ($this->matchesDesired($existingTags, $desiredTags, $contextNode)) {
             return false;
         }
@@ -838,8 +954,13 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         foreach ($phpDocNode->children as $child) {
             if ($child instanceof PhpDocTagNode && in_array($child, $existingTagNodes, true)) {
                 if (isset($remainingTags[$child->name])) {
-                    [$typeNode,, $description] = $remainingTags[$child->name];
-                    $child->value = new PropertyTagValueNode($typeNode, '$' . $propertyName, $description);
+                    $remainingTag = $remainingTags[$child->name];
+                    $child->value = new PropertyTagValueNode(
+                        $remainingTag['typeNode'],
+                        '$' . $propertyName,
+                        $remainingTag['description']
+                    );
+
                     $children[] = $child;
                     unset($remainingTags[$child->name]);
                 }
@@ -853,21 +974,82 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         }
 
         $newTagNodes = [];
-        foreach ($remainingTags as $tagName => [$typeNode,, $description]) {
-            $newTagNodes[] = new PhpDocTagNode($tagName, new PropertyTagValueNode($typeNode, '$' . $propertyName, $description));
+        foreach ($remainingTags as $tagName => $tag) {
+            $newTagNodes[] = new PhpDocTagNode(
+                $tagName,
+                new PropertyTagValueNode($tag['typeNode'], '$' . $propertyName, $tag['description'])
+            );
         }
 
-        array_splice($children, $insertAt ?? count($children), 0, $newTagNodes);
+        array_splice(
+            $children,
+            $insertAt ?? $this->resolveInsertBeforeConfiguredTagIndex($children) ?? count($children),
+            0,
+            $newTagNodes
+        );
+
         $phpDocNode->children = $children;
 
         return true;
     }
 
     /**
-     * @param array{0: TypeNode, 1: Type, 2: string} $getter
-     * @param array{0: TypeNode, 1: Type, 2: string}|null $setter
+     * @param list<array{tagNode: PhpDocTagNode, value: PropertyTagValueNode}> $existingTags
+     * @param array<string, PropertyTypeInfo> $desiredTags
      *
-     * @return array<string, array{0: TypeNode, 1: Type, 2: string}>
+     * @return array<string, PropertyTypeInfo>
+     */
+    private function preserveExistingTypesOverUnresolvedMixed(array $existingTags, array $desiredTags, Node $contextNode): array
+    {
+        $existingValueByTagName = [];
+        foreach ($existingTags as $existingTag) {
+            $existingValueByTagName[$existingTag['tagNode']->name] = $existingTag['value'];
+        }
+
+        foreach ($desiredTags as $tagName => $tag) {
+            if (!$tag['type'] instanceof MixedType || $tag['type']->isExplicitMixed()) {
+                continue;
+            }
+
+            $existingValue = $existingValueByTagName[$tagName] ?? null;
+            if ($existingValue === null) {
+                continue;
+            }
+
+            $existingType = $this->staticTypeMapper->mapPHPStanPhpDocTypeNodeToPHPStanType($existingValue->type, $contextNode);
+            if ($existingType instanceof MixedType) {
+                continue;
+            }
+
+            $desiredTags[$tagName] = [
+                'typeNode' => $existingValue->type,
+                'type' => $existingType,
+                'description' => $existingValue->description,
+            ];
+        }
+
+        return $desiredTags;
+    }
+
+    /**
+     * @param list<PhpDocChildNode> $children
+     */
+    private function resolveInsertBeforeConfiguredTagIndex(array $children): ?int
+    {
+        foreach ($children as $index => $child) {
+            if ($child instanceof PhpDocTagNode && $this->insertBeforeTagsConfiguration->containsTagName($child->name)) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param PropertyTypeInfo $getter
+     * @param PropertyTypeInfo|null $setter
+     *
+     * @return array<string, PropertyTypeInfo>
      */
     private function buildDesiredTagsForGetter(array $getter, ?array $setter): array
     {
@@ -875,9 +1057,9 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             return ['@property-read' => $this->finalizeTag($getter)];
         }
 
-        if ($getter[1]->equals($setter[1])) {
-            $description = $getter[2] !== '' ? $getter[2] : $setter[2];
-            $tag = [$getter[0], $getter[1], $description];
+        if ($getter['type']->equals($setter['type'])) {
+            $description = $getter['description'] !== '' ? $getter['description'] : $setter['description'];
+            $tag = ['typeNode' => $getter['typeNode'], 'type' => $getter['type'], 'description' => $description];
 
             return ['@property' => $this->finalizeTag($tag)];
         }
@@ -889,15 +1071,17 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     }
 
     /**
-     * @param array{0: TypeNode, 1: Type, 2: string} $tag
+     * @param PropertyTypeInfo $tag
      *
-     * @return array{0: TypeNode, 1: Type, 2: string}
+     * @return PropertyTypeInfo
      */
     private function finalizeTag(array $tag): array
     {
-        [$typeNode, $type, $rawDescription] = $tag;
-
-        return [$typeNode, $type, $this->finalizeDescriptionForTag($rawDescription)];
+        return [
+            'typeNode' => $tag['typeNode'],
+            'type' => $tag['type'],
+            'description' => $this->finalizeDescriptionForTag($tag['description']),
+        ];
     }
 
     /**
@@ -924,7 +1108,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     /**
      * @param list<array{tagNode: PhpDocTagNode, value: PropertyTagValueNode}> $existingTags
-     * @param array<string, array{0: TypeNode, 1: Type, 2: string}> $desiredTags
+     * @param array<string, PropertyTypeInfo> $desiredTags
      */
     private function matchesDesired(array $existingTags, array $desiredTags, Node $contextNode): bool
     {
@@ -938,13 +1122,13 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             $existingByTagName[$existingTag['tagNode']->name][] = $existingTag['value'];
         }
 
-        foreach ($desiredTags as $tagName => [, $desiredType, $desiredDescription]) {
+        foreach ($desiredTags as $tagName => $tag) {
             if (!isset($existingByTagName[$tagName]) || count($existingByTagName[$tagName]) !== 1) {
                 return false;
             }
 
             $existingValue = $existingByTagName[$tagName][0];
-            if (!$this->isDescriptionsEquivalent($existingValue->description, $desiredDescription)) {
+            if (!$this->isDescriptionsEquivalent($existingValue->description, $tag['description'])) {
                 return false;
             }
 
@@ -953,7 +1137,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
                 $contextNode
             );
 
-            if (!$existingType->equals($desiredType)) {
+            if (!$existingType->equals($tag['type'])) {
                 return false;
             }
         }
