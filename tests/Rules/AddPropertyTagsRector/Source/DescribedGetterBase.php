@@ -6,13 +6,13 @@ namespace MSpirkov\Yii2\Rector\Tests\Rules\AddPropertyTagsRector\Source;
 
 use yii\base\BaseObject;
 
-class SpeedBase extends BaseObject
+class DescribedGetterBase extends BaseObject
 {
     /**
-     * @return int The current speed, in km/h.
+     * @return string The item's display title.
      */
-    public function getSpeed(): int
+    public function getTitle(): string
     {
-        return 0;
+        return '';
     }
 }

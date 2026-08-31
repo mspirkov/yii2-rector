@@ -45,4 +45,22 @@ final class AddPropertyTagsRectorConfigureTest extends AbstractLazyTestCase
 
         $rule->configure([AddPropertyTagsRector::SKIPPED_CLASSES => ['SomeClass' => ['validProperty', 123]]]);
     }
+
+    public function testInsertBeforeTagsMustBeAnArray(): void
+    {
+        $rule = $this->make(AddPropertyTagsRector::class);
+
+        self::expectException(InvalidArgumentException::class);
+
+        $rule->configure([AddPropertyTagsRector::INSERT_BEFORE_TAGS => 'notAnArray']);
+    }
+
+    public function testInsertBeforeTagsMustContainOnlyStrings(): void
+    {
+        $rule = $this->make(AddPropertyTagsRector::class);
+
+        self::expectException(InvalidArgumentException::class);
+
+        $rule->configure([AddPropertyTagsRector::INSERT_BEFORE_TAGS => ['@mixin', 123]]);
+    }
 }
