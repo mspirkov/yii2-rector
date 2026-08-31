@@ -76,6 +76,9 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     /** @var list<string> */
     private const RELATION_METHOD_NAMES = ['hasOne', 'hasMany'];
 
+    /** @var list<string> */
+    private const PROPERTY_TAG_NAMES = ['@property', '@property-read', '@property-write'];
+
     private ReflectionProvider $reflectionProvider;
 
     private PhpDocInfoFactory $phpDocInfoFactory;
@@ -450,6 +453,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     private function resolveAncestorDescription(ClassReflection $classReflection, string $methodName, bool $isGetter): string
     {
+        $description = $this->resolveDescriptionFromInterfaces($classReflection, $methodName, $isGetter);
+        if ($description !== '') {
+            return $description;
+        }
+
         $ancestorClassReflection = $classReflection->getParentClass();
 
         while (
@@ -459,21 +467,43 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             $reflectionMethod = $ancestorClassReflection->getNativeReflection()->getMethod($methodName);
             $declaringClassReflection = $this->reflectionProvider->getClass($reflectionMethod->getDeclaringClass()->getName());
 
-            $classMethod = $this->astResolver->resolveClassMethodFromMethodReflection(
-                $declaringClassReflection->getNativeMethod($methodName)
-            );
-
-            if ($classMethod !== null) {
-                $description = $isGetter
-                    ? $this->resolveReturnTagDescription($classMethod)
-                    : $this->resolveFirstParamDescription($classMethod);
-
-                if ($description !== '') {
-                    return $description;
-                }
+            $description = $this->resolveDescriptionFromClassMethod($declaringClassReflection, $methodName, $isGetter);
+            if ($description !== '') {
+                return $description;
             }
 
             $ancestorClassReflection = $declaringClassReflection->getParentClass();
+        }
+
+        return '';
+    }
+
+    private function resolveDescriptionFromClassMethod(ClassReflection $declaringClassReflection, string $methodName, bool $isGetter): string
+    {
+        $classMethod = $this->astResolver->resolveClassMethodFromMethodReflection(
+            $declaringClassReflection->getNativeMethod($methodName)
+        );
+
+        if ($classMethod === null) {
+            return '';
+        }
+
+        return $isGetter
+            ? $this->resolveReturnTagDescription($classMethod)
+            : $this->resolveFirstParamDescription($classMethod);
+    }
+
+    private function resolveDescriptionFromInterfaces(ClassReflection $classReflection, string $methodName, bool $isGetter): string
+    {
+        foreach ($classReflection->getInterfaces() as $interface) {
+            if (!$interface->getNativeReflection()->hasMethod($methodName)) {
+                continue;
+            }
+
+            $description = $this->resolveDescriptionFromClassMethod($interface, $methodName, $isGetter);
+            if ($description !== '') {
+                return $description;
+            }
         }
 
         return '';
@@ -950,6 +980,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         $phpDocNode = $classPhpDocInfo->getPhpDocNode();
         $children = [];
         $insertAt = null;
+        $lastPropertyTagIndex = null;
 
         foreach ($phpDocNode->children as $child) {
             if ($child instanceof PhpDocTagNode && in_array($child, $existingTagNodes, true)) {
@@ -971,6 +1002,10 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             }
 
             $children[] = $child;
+
+            if ($child instanceof PhpDocTagNode && in_array($child->name, self::PROPERTY_TAG_NAMES, true)) {
+                $lastPropertyTagIndex = count($children);
+            }
         }
 
         $newTagNodes = [];
@@ -983,7 +1018,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
         array_splice(
             $children,
-            $insertAt ?? $this->resolveInsertBeforeConfiguredTagIndex($children) ?? count($children),
+            $insertAt ?? $lastPropertyTagIndex ?? $this->resolveInsertBeforeConfiguredTagIndex($children) ?? count($children),
             0,
             $newTagNodes
         );
@@ -1006,12 +1041,16 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             $existingValueByTagName[$existingTag['tagNode']->name] = $existingTag['value'];
         }
 
+        // When the only existing tag's direction is also being corrected (e.g. @property -> @property-read),
+        // its type has no same-named counterpart to match against but is still the sole, unambiguous candidate.
+        $soleExistingValue = count($existingTags) === 1 ? $existingTags[0]['value'] : null;
+
         foreach ($desiredTags as $tagName => $tag) {
             if (!$tag['type'] instanceof MixedType || $tag['type']->isExplicitMixed()) {
                 continue;
             }
 
-            $existingValue = $existingValueByTagName[$tagName] ?? null;
+            $existingValue = $existingValueByTagName[$tagName] ?? $soleExistingValue;
             if ($existingValue === null) {
                 continue;
             }
@@ -1091,7 +1130,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     {
         $matching = [];
 
-        foreach (['@property', '@property-read', '@property-write'] as $tagName) {
+        foreach (self::PROPERTY_TAG_NAMES as $tagName) {
             foreach ($classPhpDocInfo->getTagsByName($tagName) as $phpDocTagNode) {
                 if (!$phpDocTagNode->value instanceof PropertyTagValueNode) {
                     continue;
