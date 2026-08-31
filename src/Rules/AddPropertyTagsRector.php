@@ -570,10 +570,8 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     private function finalizeDescriptionPunctuation(string $description): string
     {
-        $body = rtrim($description, "\n");
+        $body = ucfirst(rtrim($description, "\n"));
         $trailingNewlines = substr($description, strlen($body));
-
-        $body = ucfirst($body);
 
         if (substr($body, -3) !== '```' && !in_array(substr($body, -1), ['.', '!', '?', ':'], true)) {
             $body .= '.';
@@ -623,13 +621,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         }
 
         $relation = $this->findRelationCall($classMethod->stmts);
-
         if ($relation === null) {
             return null;
         }
 
         $relatedClass = $this->resolveRelatedClassNameFromCall($relation['call'], $classReflection);
-
         if ($relatedClass === null) {
             return null;
         }
@@ -904,22 +900,22 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         }
 
         $existingTagNodes = array_column($existingTags, 'tagNode');
-
-        $newTagNodes = [];
-        foreach ($desiredTags as $tagName => [$typeNode,, $description]) {
-            $newTagNodes[] = new PhpDocTagNode($tagName, new PropertyTagValueNode($typeNode, '$' . $propertyName, $description));
-        }
+        $remainingTags = $desiredTags;
 
         $phpDocNode = $classPhpDocInfo->getPhpDocNode();
         $children = [];
-        $inserted = false;
+        $insertAt = null;
 
         foreach ($phpDocNode->children as $child) {
-            if (in_array($child, $existingTagNodes, true)) {
-                if (!$inserted) {
-                    $children = array_merge($children, $newTagNodes);
-                    $inserted = true;
+            if ($child instanceof PhpDocTagNode && in_array($child, $existingTagNodes, true)) {
+                if (isset($remainingTags[$child->name])) {
+                    [$typeNode,, $description] = $remainingTags[$child->name];
+                    $child->value = new PropertyTagValueNode($typeNode, '$' . $propertyName, $description);
+                    $children[] = $child;
+                    unset($remainingTags[$child->name]);
                 }
+
+                $insertAt = count($children);
 
                 continue;
             }
@@ -927,10 +923,12 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             $children[] = $child;
         }
 
-        if (!$inserted) {
-            $children = array_merge($children, $newTagNodes);
+        $newTagNodes = [];
+        foreach ($remainingTags as $tagName => [$typeNode,, $description]) {
+            $newTagNodes[] = new PhpDocTagNode($tagName, new PropertyTagValueNode($typeNode, '$' . $propertyName, $description));
         }
 
+        array_splice($children, $insertAt ?? count($children), 0, $newTagNodes);
         $phpDocNode->children = $children;
 
         return true;
