@@ -172,7 +172,7 @@ final class RulesDocumentationTest extends AbstractLazyTestCase
                 continue;
             }
 
-            $lines[] = $prefix . rtrim($line, "\n");
+            $lines[] = rtrim($prefix . rtrim($line, "\n"));
         }
 
         $diff = rtrim(implode("\n", $lines));

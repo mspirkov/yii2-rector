@@ -46,8 +46,26 @@ return RectorConfig::configure()
     ]);
 ```
 
-Individual rules can be enabled on their own via `->withRules([...])` instead of `->withSets([...])`, and any
-rule — whether pulled in through `Yii2SetList::MAIN` or added individually — can be turned off via
+### Enabling individual rules
+
+Individual rules can be enabled on their own via `->withRules([...])` instead of `->withSets([...])`:
+
+```php
+use MSpirkov\Yii2\Rector\Rules\ReplaceClassnameWithClassRector;
+use MSpirkov\Yii2\Rector\Rules\ReplaceExistenceCheckWithExistsRector;
+use Rector\Config\RectorConfig;
+
+return RectorConfig::configure()
+    ->withPaths(...)
+    ->withRules([
+        ReplaceClassnameWithClassRector::class,
+        ReplaceExistenceCheckWithExistsRector::class,
+    ]);
+```
+
+### Skipping rules
+
+Any rule — whether pulled in through `Yii2SetList::MAIN` or added individually — can be turned off entirely via
 `->withSkip([...])`:
 
 ```php
@@ -64,6 +82,48 @@ return RectorConfig::configure()
         MergeModelRulesRector::class,
     ]);
 ```
+
+Mapping a rule to a list of paths/patterns instead skips it only there, leaving it active everywhere else — handy
+for legacy code that isn't ready for a particular rule yet:
+
+```php
+    ->withSkip([
+        MergeModelRulesRector::class => [
+            __DIR__ . '/src/Legacy/*',
+        ],
+    ]);
+```
+
+A plain path/pattern (no rule class key) skips those files from every rule, Yii2-specific or not.
+
+### Configuring a rule
+
+`AddPropertyTagsRector` and `RemoveRedundantPropertyTagsRector` accept a `skippedClasses` option — see the
+[rule reference](#rule-reference) below for the exact shape of each — and `AddPropertyTagsRector` additionally
+accepts `insertBeforeTags`. Configure them via `->withConfiguredRule()`, using the rule's own constants as keys:
+
+```php
+use MSpirkov\Yii2\Rector\Rules\AddPropertyTagsRector;
+use MSpirkov\Yii2\Rector\Yii2SetList;
+use Rector\Config\RectorConfig;
+
+return RectorConfig::configure()
+    ->withPaths(...)
+    ->withSets([
+        Yii2SetList::MAIN,
+    ])
+    ->withConfiguredRule(AddPropertyTagsRector::class, [
+        'skippedClasses' => [
+            'App\Models\LegacyModel',
+            'App\Models\Product' => ['internalNotes'],
+        ],
+        'insertBeforeTags' => ['@author', '@since'],
+    ]);
+```
+
+`App\Models\LegacyModel` above is skipped entirely (a plain array value), while only the `internalNotes` property
+is skipped on `App\Models\Product` (a class-name key mapped to a list of property names) — every other property
+on it is still processed normally.
 
 ## Rules at a glance
 
@@ -102,11 +162,11 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
  class Product extends BaseObject
  {
      private string $_name;
- 
+
      private int $_price;
- 
+
      private float $_discount;
- 
+
      /**
       * @return string The product name.
       */
@@ -114,7 +174,7 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          return $this->_name;
      }
- 
+
      /**
       * @param string $name The product name.
       */
@@ -122,12 +182,12 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          $this->_name = $name;
      }
- 
+
      public function getPrice(): int
      {
          return $this->_price;
      }
- 
+
      public function setDiscount(float $discount): void
      {
          $this->_discount = $discount;
@@ -146,7 +206,7 @@ Add (or correct) `@property`/`@property-read`/`@property-write` tags on a `yii\b
      {
          return $this->hasOne(Customer::class, ['id' => 'customer_id']);
      }
- 
+
      public function getItems(): ActiveQuery
      {
          return $this->hasMany(OrderItem::class, ['order_id' => 'id']);
@@ -200,12 +260,12 @@ Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\Bas
  class Product extends BaseObject
  {
      private string $_name;
- 
+
      public function getName(): string
      {
          return $this->_name;
      }
- 
+
      public function setName(string $name): void
      {
          $this->_name = $name;
@@ -234,7 +294,7 @@ Replace an existence check on a `yii\db\QueryInterface` result with the cheaper 
 -    return User::find()->where(['email' => $email])->one() !== null;
 +    return User::find()->where(['email' => $email])->exists();
  }
- 
+
  public function emailIsAvailable(string $email): bool
  {
 -    return User::find()->where(['email' => $email])->count() < 1;
@@ -271,13 +331,13 @@ Replace a `yii\base\BaseObject` getter call with the equivalent magic-property a
  class Example extends BaseObject
  {
      private string $_prop;
- 
+
      public function getProp(): string
      {
          return $this->_prop;
      }
  }
- 
+
 -$value = (new Example())->getProp();
 +$value = (new Example())->prop;
 ```
@@ -293,13 +353,13 @@ Replace a `yii\base\BaseObject` setter call with the equivalent magic-property a
  class Example extends \yii\base\BaseObject
  {
      private string $_prop;
- 
+
      public function setProp(string $value): void
      {
          $this->_prop = $value;
      }
  }
- 
+
 -(new Example())->setProp('value');
 +(new Example())->prop = 'value';
 ```
