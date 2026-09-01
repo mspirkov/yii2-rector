@@ -53,4 +53,23 @@ final class BaseObjectAnalyzer
         return $classReflection->hasNativeProperty($propertyName)
             && $classReflection->getNativeProperty($propertyName)->isPublic();
     }
+
+    /**
+     * @param list<class-string> $knownDeclaringClasses
+     */
+    public function hasCustomMagicAccessors(ClassReflection $classReflection, array $knownDeclaringClasses): bool
+    {
+        return $this->isCustomMagicAccessor($classReflection, '__get', $knownDeclaringClasses)
+            || $this->isCustomMagicAccessor($classReflection, '__set', $knownDeclaringClasses);
+    }
+
+    /**
+     * @param list<class-string> $knownDeclaringClasses
+     */
+    private function isCustomMagicAccessor(ClassReflection $classReflection, string $methodName, array $knownDeclaringClasses): bool
+    {
+        $declaringClassName = $classReflection->getNativeReflection()->getMethod($methodName)->getDeclaringClass()->getName();
+
+        return !in_array($declaringClassName, $knownDeclaringClasses, true);
+    }
 }
