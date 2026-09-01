@@ -22,8 +22,7 @@ use Symplify\RuleDocGenerator\Contract\DocumentedRuleInterface;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
 use yii\base\BaseObject;
-use yii\base\DynamicModel;
-use yii\db\BaseActiveRecord;
+use yii\base\Component;
 
 final class RemoveRedundantPropertyTagsRector extends AbstractRector implements ConfigurableRectorInterface, DocumentedRuleInterface
 {
@@ -34,6 +33,9 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
 
     /** @var list<string> */
     private const PROPERTY_TAG_NAMES = ['@property', '@property-read', '@property-write'];
+
+    /** @var list<class-string> */
+    private const KNOWN_MAGIC_ACCESSOR_DECLARING_CLASSES = [BaseObject::class, Component::class];
 
     private ReflectionProvider $reflectionProvider;
 
@@ -78,8 +80,10 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
             . 'removed. A tag backed by at least one accessor is left untouched even if it names the '
             . 'wrong direction (e.g. `@property-read` with only a setter) — correcting it to match the '
             . 'accessor that does exist is `AddPropertyTagsRector`\'s job, not this rule\'s, so the two '
-            . 'never touch the same tag. `yii\db\BaseActiveRecord` and `yii\base\DynamicModel` '
-            . 'descendants are skipped entirely, since their magic properties aren\'t backed by '
+            . 'never touch the same tag. A class whose `__get()`/`__set()` isn\'t the one inherited '
+            . 'from `yii\base\BaseObject` or `yii\base\Component` — own override or inherited from '
+            . 'some other ancestor, including `yii\db\BaseActiveRecord` and `yii\base\DynamicModel` '
+            . '— is skipped entirely, since its magic properties aren\'t necessarily backed by '
             . 'getter/setter methods. Configurable via `skippedClasses` — a plain array value (e.g. '
             . '`\'App\\Foo\'`) fully skips a class, while a string key mapped to a list of property '
             . 'names (e.g. `\'App\\Bar\' => [\'name\']`) skips only those properties',
@@ -147,14 +151,6 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
             return null;
         }
 
-        if ($this->isObjectType($node, new ObjectType(BaseActiveRecord::class))) {
-            return null;
-        }
-
-        if ($this->isObjectType($node, new ObjectType(DynamicModel::class))) {
-            return null;
-        }
-
         /** @var string $className */
         $className = $this->getName($node);
         if ($this->skippedClassesConfiguration->isClassSkipped($className)) {
@@ -162,6 +158,10 @@ final class RemoveRedundantPropertyTagsRector extends AbstractRector implements 
         }
 
         $classReflection = $this->reflectionProvider->getClass($className);
+        if ($this->baseObjectAnalyzer->hasCustomMagicAccessors($classReflection, self::KNOWN_MAGIC_ACCESSOR_DECLARING_CLASSES)) {
+            return null;
+        }
+
         $classPhpDocInfo = $this->phpDocInfoFactory->createFromNodeOrEmpty($node);
         $phpDocNode = $classPhpDocInfo->getPhpDocNode();
 

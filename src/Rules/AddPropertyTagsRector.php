@@ -51,6 +51,8 @@ use Symplify\RuleDocGenerator\Contract\DocumentedRuleInterface;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
 use yii\base\BaseObject;
+use yii\base\Component;
+use yii\base\DynamicModel;
 use yii\db\ActiveQuery;
 use yii\db\BaseActiveRecord;
 
@@ -78,6 +80,14 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
 
     /** @var list<string> */
     private const PROPERTY_TAG_NAMES = ['@property', '@property-read', '@property-write'];
+
+    /** @var list<class-string> */
+    private const KNOWN_MAGIC_ACCESSOR_DECLARING_CLASSES = [
+        BaseObject::class,
+        Component::class,
+        BaseActiveRecord::class,
+        DynamicModel::class,
+    ];
 
     private ReflectionProvider $reflectionProvider;
 
@@ -146,7 +156,11 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         return new RuleDefinition(
             'Add (or correct) `@property`/`@property-read`/`@property-write` tags on a '
             . '`yii\base\BaseObject` subclass, based on its own `getXxx()`/`setXxx()` method pairs '
-            . 'and ActiveRecord relation getters (`hasOne()`/`hasMany()`). Configurable via '
+            . 'and ActiveRecord relation getters (`hasOne()`/`hasMany()`). A class whose '
+            . '`__get()`/`__set()` is overridden by something other than `yii\base\BaseObject`, '
+            . '`yii\base\Component`, `yii\db\BaseActiveRecord`, or `yii\base\DynamicModel` is '
+            . 'skipped entirely, since such magic properties may not correspond to '
+            . '`getXxx()`/`setXxx()` methods. Configurable via '
             . '`skippedClasses` — a plain array value (e.g. `\'App\\Foo\'`) fully skips a class, while '
             . 'a string key mapped to a list of property names (e.g. `\'App\\Bar\' => [\'name\']`) '
             . 'skips only those properties — and `insertBeforeTags`, a list of PHPDoc tag names '
@@ -298,6 +312,10 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         }
 
         $classReflection = $this->reflectionProvider->getClass($className);
+        if ($this->baseObjectAnalyzer->hasCustomMagicAccessors($classReflection, self::KNOWN_MAGIC_ACCESSOR_DECLARING_CLASSES)) {
+            return null;
+        }
+
         $desiredTagsByProperty = $this->collectDesiredPropertyTags($node, $classReflection);
 
         foreach ($this->skippedClassesConfiguration->getSkippedProperties($className) as $skippedProperty) {
