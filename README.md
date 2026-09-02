@@ -5,7 +5,7 @@
     <h1 align="center">Yii2 Rector</h1>
 </p>
 
-A set of [Rector](https://getrector.com) rules for Yii2 projects that I put together for my own day-to-day work.
+A set of [Rector](https://getrector.com) rules for [Yii2](https://github.com/yiisoft/yii2) projects that I put together for my own day-to-day work.
 They make refactoring a Yii2 codebase easier and help keep it cleaner, automating the framework-specific patterns
 — magic properties, `ActiveRecord`/`Query` calls, accumulated deprecations — that a generic Rector set has no way
 to know about.
