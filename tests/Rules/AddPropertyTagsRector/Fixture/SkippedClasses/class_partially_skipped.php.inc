@@ -9,6 +9,8 @@ use yii\base\BaseObject;
  */
 class PartiallySkippedProduct extends BaseObject
 {
+    private array $colors = [];
+
     public function getName(): string
     {
         return 'Widget';
@@ -17,6 +19,11 @@ class PartiallySkippedProduct extends BaseObject
     public function getPrice(): int
     {
         return 100;
+    }
+
+    public function setColor(string $color): void
+    {
+        $this->colors[] = $color;
     }
 }
 -----
@@ -32,6 +39,8 @@ use yii\base\BaseObject;
  */
 class PartiallySkippedProduct extends BaseObject
 {
+    private array $colors = [];
+
     public function getName(): string
     {
         return 'Widget';
@@ -40,5 +49,10 @@ class PartiallySkippedProduct extends BaseObject
     public function getPrice(): int
     {
         return 100;
+    }
+
+    public function setColor(string $color): void
+    {
+        $this->colors[] = $color;
     }
 }
