@@ -53,7 +53,7 @@ use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
 use yii\base\BaseObject;
 use yii\base\Component;
 use yii\base\DynamicModel;
-use yii\db\ActiveQuery;
+use yii\db\ActiveQueryInterface;
 use yii\db\BaseActiveRecord;
 
 /**
@@ -630,7 +630,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
     private function isActiveRecordActiveQueryGetter(Type $returnType, ClassReflection $classReflection): bool
     {
         return $classReflection->is(BaseActiveRecord::class)
-            && (new ObjectType(ActiveQuery::class))->isSuperTypeOf($returnType)->yes();
+            && (new ObjectType(ActiveQueryInterface::class))->isSuperTypeOf($returnType)->yes();
     }
 
     private function resolveReturnTagDescription(ClassMethod $classMethod): string
