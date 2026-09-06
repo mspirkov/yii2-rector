@@ -15,7 +15,8 @@ to know about.
 [![Rector](https://img.shields.io/badge/%3E%3D2.6.0-247BA0.svg?style=for-the-badge&label=Rector)](https://github.com/rectorphp/rector/releases/tag/2.6.0)
 [![Tests](https://img.shields.io/github/actions/workflow/status/mspirkov/yii2-rector/ci.yml?branch=main&style=for-the-badge&logo=github&label=Tests)](https://github.com/mspirkov/yii2-rector/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/mspirkov/yii2-rector.svg?branch=main&style=for-the-badge&logo=codecov&logoColor=white&label=Coverage)](https://codecov.io/github/mspirkov/yii2-rector)
-![PHPStan Level Max](https://img.shields.io/badge/Max-7A86B8.svg?style=for-the-badge&label=PHPStan%20Level)
+[![PHPStan Level Max](https://img.shields.io/badge/Max-7A86B8.svg?style=for-the-badge&label=PHPStan%20Level)](https://github.com/mspirkov/yii2-rector/blob/main/phpstan.dist.neon)
+[![Total Downloads](https://img.shields.io/packagist/dt/mspirkov/yii2-rector.svg?style=for-the-badge&logo=composer&logoColor=white&label=Downloads)](https://packagist.org/packages/mspirkov/yii2-rector)
 
 ## Support
 
