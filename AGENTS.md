@@ -30,6 +30,8 @@ tests/
     Source/*.php                Shared fixture-scaffolding classes, when a rule needs them
 rector.php                     This repo's OWN self-check config (generic core rule sets,
                                 not this package's own rules — see "Self-linting" below)
+structarmed.php                Architecture guard (boundwize/structarmed): namespace layers under
+                                src/ and which may depend on which — see "Self-linting" below
 phpstan.dist.neon              level: max + several strict rule packs, analyses src/ + tests/
 .php-cs-fixer.dist.php         Code style
 README.md                      Has a machine-generated "Rules" section — never hand-edit it
@@ -94,6 +96,7 @@ README.md                      Has a machine-generated "Rules" section — never
    php ./vendor/bin/phpstan analyse --no-progress
    php ./vendor/bin/php-cs-fixer check --diff      # or `fix` to auto-apply
    php ./vendor/bin/rector process --dry-run        # this repo's own self-check
+   ./vendor/bin/structarmed analyse                 # layer rules; PHP >= 8.2 only, see "Self-linting"
    ```
 
    These map to the composer scripts `phpstan`, `lint:check`/`lint:fix`, `rector:check`/`rector:fix`
@@ -332,3 +335,12 @@ patterns (note `.php-cs-fixer.dist.php`'s `tests/Rules/Source` entry is a litera
 path left over from an earlier, never-adopted flat-directory idea, so it does *not* actually
 match this per-rule-nested layout; `Source/*.php` files are therefore still checked by cs-fixer,
 which is fine since they're normal PHP and should stay style-consistent with everything else).
+
+`structarmed.php` is the architecture guard for `src/`: it maps each namespace (`Analyzers/`,
+`Helpers/`, `Resolvers/`, `Rules/`, `ValueObjects/`, `Yii2SetList`) to a layer and only lets
+`Rules` depend on the other layers — everything else must stay free of internal dependencies.
+Add a new namespace under `src/` there too. `boundwize/structarmed` needs PHP >= 8.2, while this
+package supports 7.4, so it is *not* in `composer.json`; the `structarmed` CI job (and you, locally)
+install it on demand with `composer require --dev boundwize/structarmed:^0.17` before running
+`./vendor/bin/structarmed analyse`. Tests are not assigned to any layer, so they are not checked
+by the ruleset (the PSR-4 preset still covers them).

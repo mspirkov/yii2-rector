@@ -53,6 +53,25 @@ jobs:
       - name: Run Rector
         run: ./vendor/bin/rector process --dry-run
 
+  structarmed:
+    name: "StructArmed check"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # boundwize/structarmed needs PHP >= 8.2, while this package still supports 7.4,
+      # so it is installed here on demand instead of being listed in composer.json.
+      - name: Setup
+        uses: ./.github/composite-actions/setup
+        with:
+          php-version: "8.2"
+
+      - name: Run StructArmed
+        run: |
+          composer require --dev boundwize/structarmed:^0.17
+          ./vendor/bin/structarmed analyse
+
   tests:
     runs-on: ubuntu-latest
     strategy:

@@ -9,7 +9,7 @@ use yii\base\BaseObject;
 /**
  * @property-read string $parentProp
  */
-class GetterParentWithPropertyTag extends BaseObject
+abstract class GetterParentWithPropertyTag extends BaseObject
 {
     private $_parentProp = '';
 
