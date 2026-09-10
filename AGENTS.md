@@ -319,7 +319,7 @@ class).
    reference that outlives the scope you meant it for) — by-value code makes the transform's
    input/output shape explicit and is easier to reason about and review.
 
-## Self-linting (`rector.php` at the repo root)
+## Self-linting (`rector.php` and `structarmed.php` at the repo root)
 
 This is **not** where this package's own rules get dogfooded — `rector.php` runs generic
 `rector/rector` core sets (`CODE_QUALITY`, `DEAD_CODE`, `PRIVATIZATION`, `TYPE_DECLARATION`, plus
@@ -342,5 +342,8 @@ which is fine since they're normal PHP and should stay style-consistent with eve
 Add a new namespace under `src/` there too. `boundwize/structarmed` needs PHP >= 8.2, while this
 package supports 7.4, so it is *not* in `composer.json`; the `structarmed` CI job (and you, locally)
 install it on demand with `composer require --dev boundwize/structarmed:^0.17` before running
-`./vendor/bin/structarmed analyse`. Tests are not assigned to any layer, so they are not checked
-by the ruleset (the PSR-4 preset still covers them).
+`./vendor/bin/structarmed analyse`. Note that structarmed scans every path in `composer.json`'s
+autoload maps, so `tests/` is analysed too (including the `Source/*.php` fixture scaffolding,
+which structarmed does *not* skip — unlike `rector.php`/`phpstan.dist.neon` above). Tests are
+not assigned to any layer, so they are not checked by the ruleset; only the presets (PSR-4 etc.)
+apply to them.
