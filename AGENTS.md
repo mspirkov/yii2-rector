@@ -341,9 +341,18 @@ which is fine since they're normal PHP and should stay style-consistent with eve
 `Rules` depend on the other layers — everything else must stay free of internal dependencies.
 Add a new namespace under `src/` there too. `boundwize/structarmed` needs PHP >= 8.2, while this
 package supports 7.4, so it is *not* in `composer.json`; the `structarmed` CI job (and you, locally)
-install it on demand with `composer require --dev boundwize/structarmed:^0.17` before running
-`./vendor/bin/structarmed analyse`. Note that structarmed scans every path in `composer.json`'s
-autoload maps, so `tests/` is analysed too (including the `Source/*.php` fixture scaffolding,
-which structarmed does *not* skip — unlike `rector.php`/`phpstan.dist.neon` above). Tests are
-not assigned to any layer, so they are not checked by the ruleset; only the presets (PSR-4 etc.)
-apply to them.
+install it on demand with:
+
+```bash
+composer require --dev boundwize/structarmed:^0.17
+```
+
+before running:
+
+```bash
+./vendor/bin/structarmed analyse
+```
+
+The `PSR4()` preset also registers a `Source` layer covering everything in `composer.json`'s
+PSR-4 maps (`src/` *and* `tests/`); the presets (e.g. PSR-4 namespace/path checks) apply to that
+whole scope, while `ruleset()` only covers the pattern layers above.
