@@ -24,7 +24,7 @@
     "require": {
         "php": ">=7.4",
         "rector/rector": "^2.6",
-        "yiisoft/yii2": "^2.0.53"
+        "yiisoft/yii2": "^2.0.53|^22"
     },
     "require-dev": {
         "phpunit/phpunit": "^9.6",
