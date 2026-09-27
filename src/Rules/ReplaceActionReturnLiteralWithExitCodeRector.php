@@ -41,9 +41,9 @@ final class ReplaceActionReturnLiteralWithExitCodeRector extends AbstractRector 
     {
         return new RuleDefinition(
             'Replace a literal `return 0;`/`return 1;` in one of a console controller\'s `action*()` '
-            . 'methods with the equivalent `ExitCode::OK`/`ExitCode::UNSPECIFIED_ERROR` constant. A return '
-            . 'inside a closure/arrow function nested in the action method is left untouched, since it '
-            . "isn't the action's own exit code",
+                . 'methods with the equivalent `ExitCode::OK`/`ExitCode::UNSPECIFIED_ERROR` constant. A return '
+                . 'inside a closure/arrow function nested in the action method is left untouched, since it '
+                . "isn't the action's own exit code",
             [
                 new CodeSample(
                     <<<'CODE_SAMPLE'
@@ -58,8 +58,7 @@ final class ReplaceActionReturnLiteralWithExitCodeRector extends AbstractRector 
                                 return 0;
                             }
                         }
-                        CODE_SAMPLE
-                    ,
+                        CODE_SAMPLE,
                     <<<'CODE_SAMPLE'
                         class ProcessController extends Controller
                         {
@@ -106,7 +105,6 @@ final class ReplaceActionReturnLiteralWithExitCodeRector extends AbstractRector 
 
         foreach ($this->betterNodeFinder->findReturnsScoped($node) as $return) {
             $exitCodeConstFetch = $this->resolveLiteralExitCode($return->expr);
-
             if ($exitCodeConstFetch === null) {
                 continue;
             }
@@ -121,7 +119,6 @@ final class ReplaceActionReturnLiteralWithExitCodeRector extends AbstractRector 
     private function isInsideConsoleController(ClassMethod $classMethod): bool
     {
         $scope = $classMethod->getAttribute(AttributeKey::SCOPE);
-
         if (!$scope instanceof Scope) {
             return false;
         }
@@ -137,6 +134,9 @@ final class ReplaceActionReturnLiteralWithExitCodeRector extends AbstractRector 
             return null;
         }
 
-        return $this->nodeFactory->createClassConstFetch(ExitCode::class, self::LITERAL_MAP[$returnExpr->value]);
+        return $this->nodeFactory->createClassConstFetch(
+            ExitCode::class,
+            self::LITERAL_MAP[$returnExpr->value]
+        );
     }
 }

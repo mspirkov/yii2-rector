@@ -26,7 +26,7 @@ final class ReplaceExitCodeConstantRector extends AbstractRector implements Docu
     {
         return new RuleDefinition(
             'Replace a console controller\'s deprecated `Controller::EXIT_CODE_NORMAL`/`EXIT_CODE_ERROR` '
-            . 'constant with the `ExitCode::OK`/`ExitCode::UNSPECIFIED_ERROR` equivalent',
+                . 'constant with the `ExitCode::OK`/`ExitCode::UNSPECIFIED_ERROR` equivalent',
             [
                 new CodeSample(
                     <<<'CODE_SAMPLE'
@@ -37,8 +37,7 @@ final class ReplaceExitCodeConstantRector extends AbstractRector implements Docu
                                 return self::EXIT_CODE_NORMAL;
                             }
                         }
-                        CODE_SAMPLE
-                    ,
+                        CODE_SAMPLE,
                     <<<'CODE_SAMPLE'
                         class ProcessController extends Controller
                         {
@@ -73,6 +72,9 @@ final class ReplaceExitCodeConstantRector extends AbstractRector implements Docu
             return null;
         }
 
-        return $this->nodeFactory->createClassConstFetch(ExitCode::class, self::CONSTANT_MAP[$constantName]);
+        return $this->nodeFactory->createClassConstFetch(
+            ExitCode::class,
+            self::CONSTANT_MAP[$constantName]
+        );
     }
 }
