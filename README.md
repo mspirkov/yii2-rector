@@ -143,6 +143,7 @@ on it is still processed normally.
 | [MergeModelRulesRector](#mergemodelrulesrector) | Merge `yii\base\Model::rules()` entries that configure the same validator with the same options but a different attribute into one entry, combining their attributes into a single array (an attribute already present in another merged entry is not duplicated). |
 | [RemoveRedundantHtmlEncodeRector](#removeredundanthtmlencoderector) | Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan proves is a numeric string — digits only can't contain a character `htmlspecialchars()` would touch, so the call is replaced by its bare `$content` argument (dropping a trailing `$doubleEncode` argument, if present, too). |
 | [RemoveRedundantPropertyTagsRector](#removeredundantpropertytagsrector) | Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\BaseObject` subclass when neither a matching public `getXxx()` nor `setXxx()` method exists (own or inherited) — typically left behind after the accessor it documented was renamed or removed. |
+| [ReplaceCacheMultiMethodAliasesRector](#replacecachemultimethodaliasesrector) | Replace a deprecated `yii\caching\Cache` multi-key method alias — `mget()`, `mset()`, or `madd()` — with its canonical `multiGet()`, `multiSet()`, or `multiAdd()` equivalent |
 | [ReplaceClassnameWithClassRector](#replaceclassnamewithclassrector) | Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant. |
 | [ReplaceExistenceCheckWithExistsRector](#replaceexistencecheckwithexistsrector) | Replace an existence check on a `yii\db\QueryInterface` result with the cheaper `->exists()` call. |
 | [ReplaceFindWhereAllWithFindAllRector](#replacefindwhereallwithfindallrector) | Replace `find()->where([...])->all()` on an ActiveRecord class with the equivalent `findAll([...])`. |
@@ -280,6 +281,19 @@ Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\Bas
          $this->_name = $name;
      }
  }
+```
+
+### ReplaceCacheMultiMethodAliasesRector
+
+Replace a deprecated `yii\caching\Cache` multi-key method alias — `mget()`, `mset()`, or `madd()` — with its canonical `multiGet()`, `multiSet()`, or `multiAdd()` equivalent
+
+```diff
+-$cache->mget(['key1', 'key2']);
+-$cache->mset(['key1' => 'value1', 'key2' => 'value2']);
+-$cache->madd(['key3' => 'value3']);
++$cache->multiGet(['key1', 'key2']);
++$cache->multiSet(['key1' => 'value1', 'key2' => 'value2']);
++$cache->multiAdd(['key3' => 'value3']);
 ```
 
 ### ReplaceClassnameWithClassRector
