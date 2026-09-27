@@ -37,7 +37,8 @@
         "spaze/phpstan-disallowed-calls": "^4.7",
         "ergebnis/phpstan-rules": "^2.13",
         "kubawerlos/php-cs-fixer-custom-fixers": "^3.37",
-        "yiisoft/yii2-mongodb": "^3.0"
+        "yiisoft/yii2-mongodb": "^3.0",
+        "yiisoft/yii2-redis": "^2.1"
     },
     "repositories": [
         {
