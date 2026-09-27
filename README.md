@@ -150,6 +150,7 @@ on it is still processed normally.
 | [ReplaceExitCodeConstantRector](#replaceexitcodeconstantrector) | Replace a console controller's deprecated `Controller::EXIT_CODE_NORMAL`/`EXIT_CODE_ERROR` constant with the `ExitCode::OK`/`ExitCode::UNSPECIFIED_ERROR` equivalent |
 | [ReplaceFindWhereAllWithFindAllRector](#replacefindwhereallwithfindallrector) | Replace `find()->where([...])->all()` on an ActiveRecord class with the equivalent `findAll([...])`. |
 | [ReplaceFindWhereOneWithFindOneRector](#replacefindwhereonewithfindonerector) | Replace `find()->where([...])->one()` on an ActiveRecord class with the equivalent `findOne([...])`. |
+| [ReplaceGetHasChangedWithIsChangedRector](#replacegethaschangedwithischangedrector) | Replace the deprecated `yii\caching\Dependency::getHasChanged()` call with `isChanged()` |
 | [ReplaceGetterWithPropertyRector](#replacegetterwithpropertyrector) | Replace a `yii\base\BaseObject` getter call with the equivalent magic-property access, when the property is documented via a class-level `@property` or `@property-read` tag whose type matches the getter's return type, and there is no public native property of the same name (which would bypass the getter entirely) |
 | [ReplaceSetterWithPropertyRector](#replacesetterwithpropertyrector) | Replace a `yii\base\BaseObject` setter call with the equivalent magic-property assignment, when the property is documented via a class-level `@property` or `@property-write` tag whose type matches the setter's parameter type, and there is no public native property of the same name (which would bypass the setter entirely) |
 | [ReplaceTraceWithDebugRector](#replacetracewithdebugrector) | Replace the deprecated `Yii::trace()` call with `Yii::debug()` |
@@ -378,6 +379,15 @@ Replace `find()->where([...])->one()` on an ActiveRecord class with the equivale
 ```diff
 -$customer = Customer::find()->where(['status' => 1])->one();
 +$customer = Customer::findOne(['status' => 1]);
+```
+
+### ReplaceGetHasChangedWithIsChangedRector
+
+Replace the deprecated `yii\caching\Dependency::getHasChanged()` call with `isChanged()`
+
+```diff
+-$hasChanged = $dependency->getHasChanged($cache);
++$hasChanged = $dependency->isChanged($cache);
 ```
 
 ### ReplaceGetterWithPropertyRector
