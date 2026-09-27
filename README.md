@@ -143,9 +143,11 @@ on it is still processed normally.
 | [MergeModelRulesRector](#mergemodelrulesrector) | Merge `yii\base\Model::rules()` entries that configure the same validator with the same options but a different attribute into one entry, combining their attributes into a single array (an attribute already present in another merged entry is not duplicated). |
 | [RemoveRedundantHtmlEncodeRector](#removeredundanthtmlencoderector) | Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan proves is a numeric string — digits only can't contain a character `htmlspecialchars()` would touch, so the call is replaced by its bare `$content` argument (dropping a trailing `$doubleEncode` argument, if present, too). |
 | [RemoveRedundantPropertyTagsRector](#removeredundantpropertytagsrector) | Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\BaseObject` subclass when neither a matching public `getXxx()` nor `setXxx()` method exists (own or inherited) — typically left behind after the accessor it documented was renamed or removed. |
+| [ReplaceActionReturnLiteralWithExitCodeRector](#replaceactionreturnliteralwithexitcoderector) | Replace a literal `return 0;`/`return 1;` in one of a console controller's `action*()` methods with the equivalent `ExitCode::OK`/`ExitCode::UNSPECIFIED_ERROR` constant. |
 | [ReplaceCacheMultiMethodAliasesRector](#replacecachemultimethodaliasesrector) | Replace a deprecated `yii\caching\Cache` multi-key method alias — `mget()`, `mset()`, or `madd()` — with its canonical `multiGet()`, `multiSet()`, or `multiAdd()` equivalent |
 | [ReplaceClassnameWithClassRector](#replaceclassnamewithclassrector) | Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant. |
 | [ReplaceExistenceCheckWithExistsRector](#replaceexistencecheckwithexistsrector) | Replace an existence check on a `yii\db\QueryInterface` result with the cheaper `->exists()` call. |
+| [ReplaceExitCodeConstantRector](#replaceexitcodeconstantrector) | Replace a console controller's deprecated `Controller::EXIT_CODE_NORMAL`/`EXIT_CODE_ERROR` constant with the `ExitCode::OK`/`ExitCode::UNSPECIFIED_ERROR` equivalent |
 | [ReplaceFindWhereAllWithFindAllRector](#replacefindwhereallwithfindallrector) | Replace `find()->where([...])->all()` on an ActiveRecord class with the equivalent `findAll([...])`. |
 | [ReplaceFindWhereOneWithFindOneRector](#replacefindwhereonewithfindonerector) | Replace `find()->where([...])->one()` on an ActiveRecord class with the equivalent `findOne([...])`. |
 | [ReplaceGetterWithPropertyRector](#replacegetterwithpropertyrector) | Replace a `yii\base\BaseObject` getter call with the equivalent magic-property access, when the property is documented via a class-level `@property` or `@property-read` tag whose type matches the getter's return type, and there is no public native property of the same name (which would bypass the getter entirely) |
@@ -283,6 +285,26 @@ Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\Bas
  }
 ```
 
+### ReplaceActionReturnLiteralWithExitCodeRector
+
+Replace a literal `return 0;`/`return 1;` in one of a console controller's `action*()` methods with the equivalent `ExitCode::OK`/`ExitCode::UNSPECIFIED_ERROR` constant. A return inside a closure/arrow function nested in the action method is left untouched, since it isn't the action's own exit code
+
+```diff
+ class ProcessController extends Controller
+ {
+     public function actionRun(bool $allowed)
+     {
+         if (!$allowed) {
+-            return 1;
++            return ExitCode::UNSPECIFIED_ERROR;
+         }
+
+-        return 0;
++        return ExitCode::OK;
+     }
+ }
+```
+
 ### ReplaceCacheMultiMethodAliasesRector
 
 Replace a deprecated `yii\caching\Cache` multi-key method alias — `mget()`, `mset()`, or `madd()` — with its canonical `multiGet()`, `multiSet()`, or `multiAdd()` equivalent
@@ -322,6 +344,21 @@ Replace an existence check on a `yii\db\QueryInterface` result with the cheaper 
  {
 -    return User::find()->where(['email' => $email])->count() < 1;
 +    return !User::find()->where(['email' => $email])->exists();
+ }
+```
+
+### ReplaceExitCodeConstantRector
+
+Replace a console controller's deprecated `Controller::EXIT_CODE_NORMAL`/`EXIT_CODE_ERROR` constant with the `ExitCode::OK`/`ExitCode::UNSPECIFIED_ERROR` equivalent
+
+```diff
+ class ProcessController extends Controller
+ {
+     public function actionRun()
+     {
+-        return self::EXIT_CODE_NORMAL;
++        return ExitCode::OK;
+     }
  }
 ```
 
