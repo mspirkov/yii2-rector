@@ -69,8 +69,7 @@ final class ReplaceAppRequestResponseWithThisRector extends AbstractRector imple
     public function refactor(Node $node): ?Node
     {
         $propertyName = $this->getName($node->name);
-
-        if ($propertyName === null || !\in_array($propertyName, self::PROPERTY_NAMES, true)) {
+        if ($propertyName === null || !in_array($propertyName, self::PROPERTY_NAMES, true)) {
             return null;
         }
 
