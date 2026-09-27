@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 use MSpirkov\Yii2\Rector\Rules\AddPropertyTagsRector;
 use MSpirkov\Yii2\Rector\Rules\MergeModelRulesRector;
+use MSpirkov\Yii2\Rector\Rules\ReplaceActionReturnLiteralWithExitCodeRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceCacheMultiMethodAliasesRector;
 use MSpirkov\Yii2\Rector\Rules\RemoveRedundantHtmlEncodeRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceClassnameWithClassRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceExistenceCheckWithExistsRector;
+use MSpirkov\Yii2\Rector\Rules\ReplaceExitCodeConstantRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceFindWhereAllWithFindAllRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceFindWhereOneWithFindOneRector;
 use MSpirkov\Yii2\Rector\Rules\RemoveRedundantPropertyTagsRector;
@@ -23,9 +25,11 @@ return static function (RectorConfig $rectorConfig): void {
         MergeModelRulesRector::class,
         RemoveRedundantHtmlEncodeRector::class,
         RemoveRedundantPropertyTagsRector::class,
+        ReplaceActionReturnLiteralWithExitCodeRector::class,
         ReplaceCacheMultiMethodAliasesRector::class,
         ReplaceClassnameWithClassRector::class,
         ReplaceExistenceCheckWithExistsRector::class,
+        ReplaceExitCodeConstantRector::class,
         ReplaceFindWhereAllWithFindAllRector::class,
         ReplaceFindWhereOneWithFindOneRector::class,
         ReplaceGetterWithPropertyRector::class,
