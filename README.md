@@ -144,6 +144,7 @@ on it is still processed normally.
 | [RemoveRedundantHtmlEncodeRector](#removeredundanthtmlencoderector) | Remove a `yii\helpers\Html::encode()` call whose `$content` argument PHPStan proves is a numeric string — digits only can't contain a character `htmlspecialchars()` would touch, so the call is replaced by its bare `$content` argument (dropping a trailing `$doubleEncode` argument, if present, too). |
 | [RemoveRedundantPropertyTagsRector](#removeredundantpropertytagsrector) | Remove a `@property`/`@property-read`/`@property-write` tag from a `yii\base\BaseObject` subclass when neither a matching public `getXxx()` nor `setXxx()` method exists (own or inherited) — typically left behind after the accessor it documented was renamed or removed. |
 | [ReplaceActionReturnLiteralWithExitCodeRector](#replaceactionreturnliteralwithexitcoderector) | Replace a literal `return 0;`/`return 1;` in one of a console controller's `action*()` methods with the equivalent `ExitCode::OK`/`ExitCode::UNSPECIFIED_ERROR` constant. |
+| [ReplaceAppRequestResponseWithThisRector](#replaceapprequestresponsewiththisrector) | Replace `Yii::$app->request`/`Yii::$app->response` with `$this->request`/`$this->response` inside a `yii\base\Controller` subclass — the controller already exposes the same request/response objects through its own properties |
 | [ReplaceCacheMultiMethodAliasesRector](#replacecachemultimethodaliasesrector) | Replace a deprecated `yii\caching\Cache` multi-key method alias — `mget()`, `mset()`, or `madd()` — with its canonical `multiGet()`, `multiSet()`, or `multiAdd()` equivalent |
 | [ReplaceClassnameWithClassRector](#replaceclassnamewithclassrector) | Replace the deprecated `yii\base\BaseObject::className()` call with the native `::class` constant. |
 | [ReplaceExistenceCheckWithExistsRector](#replaceexistencecheckwithexistsrector) | Replace an existence check on a `yii\db\QueryInterface` result with the cheaper `->exists()` call. |
@@ -302,6 +303,24 @@ Replace a literal `return 0;`/`return 1;` in one of a console controller's `acti
 
 -        return 0;
 +        return ExitCode::OK;
+     }
+ }
+```
+
+### ReplaceAppRequestResponseWithThisRector
+
+Replace `Yii::$app->request`/`Yii::$app->response` with `$this->request`/`$this->response` inside a `yii\base\Controller` subclass — the controller already exposes the same request/response objects through its own properties
+
+```diff
+ class SiteController extends Controller
+ {
+     public function actionIndex()
+     {
+-        Yii::$app->response->format = Response::FORMAT_JSON;
++        $this->response->format = Response::FORMAT_JSON;
+
+-        $ip = Yii::$app->request->getUserIP();
++        $ip = $this->request->getUserIP();
      }
  }
 ```
