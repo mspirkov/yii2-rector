@@ -27,8 +27,8 @@ discover it.
 
 The `ActiveRecord`/`Query` rules aren't limited to the SQL-based `yii\db\ActiveRecord` — they also work with
 `ActiveRecord`/`ActiveQuery` classes from popular Yii2 storage extensions such as
-[`yiisoft/yii2-mongodb`](https://github.com/yiisoft/yii2-mongodb) and
-[`yiisoft/yii2-redis`](https://github.com/yiisoft/yii2-redis).
+[yiisoft/yii2-mongodb](https://github.com/yiisoft/yii2-mongodb) and
+[yiisoft/yii2-redis](https://github.com/yiisoft/yii2-redis).
 
 ## Installation
 
