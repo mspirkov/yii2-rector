@@ -8,7 +8,7 @@ class SomeService
 {
     public function run(): int
     {
-        return ProcessController::EXIT_CODE_ERROR;
+        return ProcessController::EXIT_CODE_NORMAL;
     }
 }
 
@@ -23,6 +23,6 @@ class SomeService
 {
     public function run(): int
     {
-        return \yii\console\ExitCode::UNSPECIFIED_ERROR;
+        return \yii\console\ExitCode::OK;
     }
 }
