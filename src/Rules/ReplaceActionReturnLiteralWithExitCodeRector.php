@@ -118,11 +118,8 @@ final class ReplaceActionReturnLiteralWithExitCodeRector extends AbstractRector 
 
     private function isInsideConsoleController(ClassMethod $classMethod): bool
     {
+        /** @var Scope $scope */
         $scope = $classMethod->getAttribute(AttributeKey::SCOPE);
-        if (!$scope instanceof Scope) {
-            return false;
-        }
-
         $classReflection = $scope->getClassReflection();
 
         return $classReflection instanceof ClassReflection && $classReflection->is(Controller::class);
