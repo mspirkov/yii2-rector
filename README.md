@@ -149,6 +149,7 @@ on it is still processed normally.
 | [ReplaceFindWhereOneWithFindOneRector](#replacefindwhereonewithfindonerector) | Replace `find()->where([...])->one()` on an ActiveRecord class with the equivalent `findOne([...])`. |
 | [ReplaceGetterWithPropertyRector](#replacegetterwithpropertyrector) | Replace a `yii\base\BaseObject` getter call with the equivalent magic-property access, when the property is documented via a class-level `@property` or `@property-read` tag whose type matches the getter's return type, and there is no public native property of the same name (which would bypass the getter entirely) |
 | [ReplaceSetterWithPropertyRector](#replacesetterwithpropertyrector) | Replace a `yii\base\BaseObject` setter call with the equivalent magic-property assignment, when the property is documented via a class-level `@property` or `@property-write` tag whose type matches the setter's parameter type, and there is no public native property of the same name (which would bypass the setter entirely) |
+| [ReplaceTraceWithDebugRector](#replacetracewithdebugrector) | Replace the deprecated `Yii::trace()` call with `Yii::debug()` |
 | [ReplaceWhereEqualityConditionWithArrayRector](#replacewhereequalityconditionwitharrayrector) | Replace a single-column string `where()`/`andWhere()`/`orWhere()` condition (interpolated or concatenated) with the safer array condition format |
 
 <!-- rules-table:end -->
@@ -370,6 +371,17 @@ Replace a `yii\base\BaseObject` setter call with the equivalent magic-property a
 
 -(new Example())->setProp('value');
 +(new Example())->prop = 'value';
+```
+
+### ReplaceTraceWithDebugRector
+
+Replace the deprecated `Yii::trace()` call with `Yii::debug()`
+
+```diff
+-Yii::trace('Some message');
+-Yii::trace($data, __METHOD__);
++Yii::debug('Some message');
++Yii::debug($data, __METHOD__);
 ```
 
 ### ReplaceWhereEqualityConditionWithArrayRector
