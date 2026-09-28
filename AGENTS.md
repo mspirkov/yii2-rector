@@ -2,7 +2,7 @@
 
 A [Rector](https://github.com/rectorphp/rector) rule set for automated upgrades/refactors of
 Yii2 (`yiisoft/yii2`) codebases. It ships as a `rector-extension` composer package: consumers
-require it and pull in `Yii2SetList::MAIN` (or individual rule classes) from their own
+require it and pull in `Yii2SetList::DEPRECATION`/`CODE_QUALITY`/`PHPDOC` (or individual rule classes) from their own
 `rector.php`.
 
 - PHP support: `>=7.4` (this repo's own dev toolchain currently runs on PHP 7.4.33 — don't
@@ -15,9 +15,12 @@ require it and pull in `Yii2SetList::MAIN` (or individual rule classes) from the
 ```text
 src/
   Rules/                      One Rector rule class per file, e.g. FooBarRector.php
-  Yii2SetList.php             Public entry point: const MAIN points at config/sets/main.php
+  Yii2SetList.php             Public entry point: one const per set, each pointing at config/sets/<set>.php
 config/
-  sets/main.php                $rectorConfig->rules([...]) — every shipped rule is registered here
+  sets/deprecation.php         $rectorConfig->rules([...]) — rules replacing deprecated Yii2 APIs
+  sets/code-quality.php        same shape — redundant-code removal and pattern simplification
+  sets/phpdoc.php              same shape — PHPDoc annotation generation/cleanup
+                                (every shipped rule is registered in exactly one of these three)
 tests/
   bootstrap.php                Loads the rector/rector preload (see gotcha #7), vendor/autoload.php,
                                 and yii2's Yii.php for PHPUnit
@@ -82,8 +85,9 @@ README.md                      Has a machine-generated "Rules" section — never
    ends up verbatim in `README.md` (see below), so it should read like end-user documentation, not
    an implementation note.
 
-2. **Register it** in `config/sets/main.php`'s `$rectorConfig->rules([...])` array so it's part
-   of `Yii2SetList::MAIN`.
+2. **Register it** in exactly one of `config/sets/deprecation.php`, `code-quality.php` or `phpdoc.php`
+   (`$rectorConfig->rules([...])`, alphabetical), matching what the rule does, so it's part of the
+   corresponding `Yii2SetList` constant.
 
 3. **Add tests** under `tests/Rules/<Name>Rector/` — see "Writing tests" below.
 
@@ -119,7 +123,7 @@ Follow the standard `rector/rector` fixture-test convention:
   unsure.
 - `tests/Rules/<Name>Rector/Config/configured_rule.php` is a `RectorConfig` that registers
   *only* the rule under test via `$rectorConfig->rule(<Name>Rector::class);` — keep it minimal,
-  don't reuse the full `main.php` set.
+  don't reuse the full sets from `config/sets/`.
 - `Fixture/*.php.inc` files hold one scenario each: content before `-----` is the input, content
   after is the expected output. **Omit the `-----` separator entirely to assert "no change"** —
   useful for documenting guard clauses / cases the rule intentionally must not touch. **Never
