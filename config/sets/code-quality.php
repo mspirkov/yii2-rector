@@ -2,43 +2,29 @@
 
 declare(strict_types=1);
 
-use MSpirkov\Yii2\Rector\Rules\AddPropertyTagsRector;
 use MSpirkov\Yii2\Rector\Rules\MergeModelRulesRector;
+use MSpirkov\Yii2\Rector\Rules\RemoveRedundantHtmlEncodeRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceActionReturnLiteralWithExitCodeRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceAppRequestResponseWithThisRector;
-use MSpirkov\Yii2\Rector\Rules\ReplaceCacheMultiMethodAliasesRector;
-use MSpirkov\Yii2\Rector\Rules\RemoveRedundantHtmlEncodeRector;
-use MSpirkov\Yii2\Rector\Rules\ReplaceClassnameWithClassRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceExistenceCheckWithExistsRector;
-use MSpirkov\Yii2\Rector\Rules\ReplaceExitCodeConstantRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceFindWhereAllWithFindAllRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceFindWhereOneWithFindOneRector;
-use MSpirkov\Yii2\Rector\Rules\RemoveRedundantPropertyTagsRector;
-use MSpirkov\Yii2\Rector\Rules\ReplaceGetHasChangedWithIsChangedRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceGetterWithPropertyRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceSetterWithPropertyRector;
-use MSpirkov\Yii2\Rector\Rules\ReplaceTraceWithDebugRector;
 use MSpirkov\Yii2\Rector\Rules\ReplaceWhereEqualityConditionWithArrayRector;
 use Rector\Config\RectorConfig;
 
 return static function (RectorConfig $rectorConfig): void {
     $rectorConfig->rules([
-        AddPropertyTagsRector::class,
         MergeModelRulesRector::class,
         RemoveRedundantHtmlEncodeRector::class,
-        RemoveRedundantPropertyTagsRector::class,
         ReplaceActionReturnLiteralWithExitCodeRector::class,
         ReplaceAppRequestResponseWithThisRector::class,
-        ReplaceCacheMultiMethodAliasesRector::class,
-        ReplaceClassnameWithClassRector::class,
         ReplaceExistenceCheckWithExistsRector::class,
-        ReplaceExitCodeConstantRector::class,
         ReplaceFindWhereAllWithFindAllRector::class,
         ReplaceFindWhereOneWithFindOneRector::class,
-        ReplaceGetHasChangedWithIsChangedRector::class,
         ReplaceGetterWithPropertyRector::class,
         ReplaceSetterWithPropertyRector::class,
-        ReplaceTraceWithDebugRector::class,
         ReplaceWhereEqualityConditionWithArrayRector::class,
     ]);
 };

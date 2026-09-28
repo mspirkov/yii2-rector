@@ -50,9 +50,21 @@ use Rector\Config\RectorConfig;
 return RectorConfig::configure()
     ->withPaths(...)
     ->withSets([
-        Yii2SetList::MAIN,
+        Yii2SetList::DEPRECATION,
+        Yii2SetList::CODE_QUALITY,
+        Yii2SetList::PHPDOC,
     ]);
 ```
+
+### Sets
+
+Every rule belongs to exactly one set, so you can enable only the kinds of changes you want:
+
+| Set | Description |
+| --- | --- |
+| `Yii2SetList::DEPRECATION` | Replaces deprecated Yii2 APIs with their current equivalents |
+| `Yii2SetList::CODE_QUALITY` | Removes redundant code and simplifies or optimizes framework-specific patterns |
+| `Yii2SetList::PHPDOC` | Generates and cleans up PHPDoc annotations, such as `@property` tags |
 
 ### Enabling individual rules
 
@@ -73,7 +85,7 @@ return RectorConfig::configure()
 
 ### Skipping rules
 
-Any rule — whether pulled in through `Yii2SetList::MAIN` or added individually — can be turned off entirely via
+Any rule — whether pulled in through a set or added individually — can be turned off entirely via
 `->withSkip([...])`:
 
 ```php
@@ -84,7 +96,9 @@ use Rector\Config\RectorConfig;
 return RectorConfig::configure()
     ->withPaths(...)
     ->withSets([
-        Yii2SetList::MAIN,
+        Yii2SetList::DEPRECATION,
+        Yii2SetList::CODE_QUALITY,
+        Yii2SetList::PHPDOC,
     ])
     ->withSkip([
         MergeModelRulesRector::class,
@@ -118,7 +132,9 @@ use Rector\Config\RectorConfig;
 return RectorConfig::configure()
     ->withPaths(...)
     ->withSets([
-        Yii2SetList::MAIN,
+        Yii2SetList::DEPRECATION,
+        Yii2SetList::CODE_QUALITY,
+        Yii2SetList::PHPDOC,
     ])
     ->withConfiguredRule(AddPropertyTagsRector::class, [
         'skippedClasses' => [
