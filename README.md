@@ -1,9 +1,4 @@
-<p align="center">
-    <a href="https://github.com/yiisoft" target="_blank">
-        <img src="https://avatars0.githubusercontent.com/u/993323" height="100px">
-    </a>
-    <h1 align="center">Yii2 Rector</h1>
-</p>
+<img src="https://github.com/user-attachments/assets/807ff281-7f4b-40cb-b3fd-d13537aa1bb6" />
 
 A set of [Rector](https://getrector.com) rules for [Yii2](https://github.com/yiisoft/yii2) projects that I put together for my own day-to-day work.
 They make refactoring a Yii2 codebase easier and help keep it cleaner, automating the framework-specific patterns
