@@ -1,10 +1,5 @@
 <img src="https://github.com/user-attachments/assets/807ff281-7f4b-40cb-b3fd-d13537aa1bb6" />
 
-A set of [Rector](https://getrector.com) rules for [Yii2](https://github.com/yiisoft/yii2) projects that I put together for my own day-to-day work.
-They make refactoring a Yii2 codebase easier and help keep it cleaner, automating the framework-specific patterns
-— magic properties, `ActiveRecord`/`Query` calls, accumulated deprecations — that a generic Rector set has no way
-to know about.
-
 [![PHP](https://img.shields.io/badge/%3E%3D7.4-7A86B8.svg?style=for-the-badge&logo=php&logoColor=white&label=PHP)](https://www.php.net/releases/7_4_0.php)
 [![Yii2](https://img.shields.io/badge/%3E%3D2.0.53-247BA0.svg?style=for-the-badge&logo=yii&logoColor=white&label=Yii)](https://github.com/yiisoft/yii2/releases/tag/2.0.53)
 [![Rector](https://img.shields.io/badge/%3E%3D2.6.0-247BA0.svg?style=for-the-badge&label=Rector)](https://github.com/rectorphp/rector/releases/tag/2.6.0)
@@ -12,6 +7,11 @@ to know about.
 [![Tests](https://img.shields.io/github/actions/workflow/status/mspirkov/yii2-rector/ci.yml?branch=main&style=for-the-badge&logo=github&label=Tests)](https://github.com/mspirkov/yii2-rector/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/mspirkov/yii2-rector.svg?branch=main&style=for-the-badge&logo=codecov&logoColor=white&label=Coverage)](https://codecov.io/github/mspirkov/yii2-rector)
 [![PHPStan Level Max](https://img.shields.io/badge/Max-7A86B8.svg?style=for-the-badge&label=PHPStan%20Level)](https://github.com/mspirkov/yii2-rector/blob/main/phpstan.dist.neon)
+
+A set of [Rector](https://getrector.com) rules for [Yii2](https://github.com/yiisoft/yii2) projects that I put together for my own day-to-day work.
+They make refactoring a Yii2 codebase easier and help keep it cleaner, automating the framework-specific patterns
+— magic properties, `ActiveRecord`/`Query` calls, accumulated deprecations — that a generic Rector set has no way
+to know about.
 
 ## Support
 
