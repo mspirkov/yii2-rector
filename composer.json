@@ -47,7 +47,7 @@
         }
     ],
     "suggest": {
-        "mspirkov/yii2-phpstan-rules": "for better error detection in Yii2 projects"
+        "mspirkov/yii2-phpstan": "for better error detection in Yii2 projects"
     },
     "autoload": {
         "psr-4": {
