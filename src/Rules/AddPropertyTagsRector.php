@@ -30,6 +30,7 @@ use PHPStan\PhpDocParser\Ast\Type\ArrayTypeNode;
 use PHPStan\PhpDocParser\Ast\Type\IdentifierTypeNode;
 use PHPStan\PhpDocParser\Ast\Type\NullableTypeNode;
 use PHPStan\PhpDocParser\Ast\Type\TypeNode;
+use PHPStan\PhpDocParser\Ast\Type\UnionTypeNode;
 use PHPStan\Reflection\ClassReflection;
 use PHPStan\Reflection\ParametersAcceptorSelector;
 use PHPStan\Reflection\ReflectionProvider;
@@ -40,7 +41,6 @@ use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
 use Rector\BetterPhpDocParser\PhpDocInfo\PhpDocInfo;
 use Rector\BetterPhpDocParser\PhpDocInfo\PhpDocInfoFactory;
-use Rector\BetterPhpDocParser\ValueObject\Type\BracketsAwareUnionTypeNode;
 use Rector\Comments\NodeDocBlock\DocBlockUpdater;
 use Rector\Contract\Rector\ConfigurableRectorInterface;
 use Rector\NodeTypeResolver\Node\AttributeKey;
@@ -672,26 +672,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
             return $description;
         }
 
-        $description = $this->finalizeDescriptionPunctuation($description);
-
-        if (strpos($description, "\n") !== false) {
-            return $this->prefixContinuationLines($description);
-        }
-
-        return $description;
-    }
-
-    private function prefixContinuationLines(string $description): string
-    {
-        $lines = explode("\n", $description);
-        $firstLine = array_shift($lines);
-
-        $continuationLines = array_map(
-            static fn(string $line): string => $line === '' ? ' *' : ' * ' . $line,
-            $lines
-        );
-
-        return implode("\n", [$firstLine, ...$continuationLines]);
+        return $this->finalizeDescriptionPunctuation($description);
     }
 
     /**
@@ -722,7 +703,7 @@ final class AddPropertyTagsRector extends AbstractRector implements Configurable
         if (!$relation['isMultiple']) {
             if ($this->shouldHasOneRelationBeNullable($relation['call'], $classReflection, $propertyName)) {
                 return [
-                    'typeNode' => new BracketsAwareUnionTypeNode([$identifierTypeNode, new IdentifierTypeNode('null')]),
+                    'typeNode' => new UnionTypeNode([$identifierTypeNode, new IdentifierTypeNode('null')]),
                     'type' => TypeCombinator::addNull($objectType),
                 ];
             }
